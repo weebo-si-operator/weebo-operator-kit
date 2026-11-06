@@ -261,11 +261,14 @@ pub fn check_vault_targets<'a>(
                 .collect()
         };
         let writer = namespace.map_or(Writer::Cluster, Writer::Namespaced);
-        if let Some(mount) = target.mount.as_deref().filter(|m| *m != vault.mount) {
-            let extra = vault
-                .additional_mounts
-                .iter()
-                .find(|m| m.mount == mount)
+        let extra_ns = target.vault_namespace.as_deref();
+        if let Some(mount) = target
+            .mount
+            .as_deref()
+            .filter(|m| *m != vault.mount || extra_ns.is_some())
+        {
+            let extra = VaultAdditionalMount::resolve(vault.additional_mounts, extra_ns, mount)
+                .map_err(|e| format!("secret target {:?}: {e}", target.name))?
                 .map(|m| grants(&m.path_grants));
             vault_paths::check_on_mount(mount, extra.as_deref(), writer, path)
                 .map_err(|e| format!("secret target {:?}: {e}", target.name))?;
@@ -681,6 +684,7 @@ mod tests {
             namespace: None,
             path: path.map(String::from),
             mount: None,
+            vault_namespace: None,
         }
     }
 
@@ -789,6 +793,7 @@ mod tests {
                 cluster_scoped: false,
                 paths: vec!["+/forgejo-token".into()],
             }],
+            ..Default::default()
         }];
         let vault = Some(VaultPaths {
             mount: "secret",
@@ -818,5 +823,49 @@ mod tests {
         };
         let err = check_vault_targets(&[no_path], Some("ci"), vault).unwrap_err();
         assert!(err.contains("needs an explicit path"), "{err}");
+    }
+
+    #[test]
+    fn two_mounts_of_one_name_are_told_apart_by_their_namespace() {
+        let orgs = |ns: &str, path: &str| VaultAdditionalMount {
+            mount: "orgs".into(),
+            vault_namespace: Some(ns.into()),
+            path_grants: vec![VaultPathGrant {
+                namespaces: vec!["ci".into()],
+                cluster_scoped: false,
+                paths: vec![path.into()],
+            }],
+            ..Default::default()
+        };
+        let mounts = [orgs("devenv", "acme/+/*"), orgs("prod", "acme/app/ci")];
+        let vault = Some(VaultPaths {
+            mount: "secret",
+            path_prefix: "weebo",
+            path_grants: &[],
+            additional_mounts: &mounts,
+        });
+        let on = |ns: Option<&str>, p: &str| SecretTarget {
+            mount: Some("orgs".into()),
+            vault_namespace: ns.map(String::from),
+            ..vault_target("app", Some(p))
+        };
+        // devenv's grant opens acme/+/*, prod's only acme/app/ci.
+        assert_eq!(
+            check_vault_targets(&[on(Some("devenv"), "acme/web/x")], Some("ci"), vault),
+            Ok(())
+        );
+        let err =
+            check_vault_targets(&[on(Some("prod"), "acme/web/x")], Some("ci"), vault).unwrap_err();
+        assert!(err.contains("on mount \"orgs\""), "{err}");
+        // Without a namespace, the name alone is ambiguous.
+        let err = check_vault_targets(&[on(None, "acme/web/x")], Some("ci"), vault).unwrap_err();
+        assert!(err.contains("vaultNamespace"), "{err}");
+        // A namespace without a mount is refused before any path check.
+        let bare = SecretTarget {
+            vault_namespace: Some("prod".into()),
+            ..vault_target("app", Some("acme/app/ci"))
+        };
+        let err = check_vault_targets(&[bare], Some("ci"), vault).unwrap_err();
+        assert!(err.contains("no mount"), "{err}");
     }
 }

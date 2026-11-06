@@ -21,6 +21,9 @@ pub use instance::{
     SharesItself,
 };
 pub use refs::{LocalSecretKeyRef, ObjectRef, SecretKeyRef};
-pub use secret::{SecretStoreBackend, SecretTarget, VaultAdditionalMount, VaultPathGrant};
+pub use secret::{
+    SecretStoreBackend, SecretTarget, VAULT_NAMESPACE_PATTERN, VaultAdditionalMount,
+    VaultKubernetesAuth, VaultMountAuth, VaultPathGrant,
+};
 pub use status::Condition;
 pub use tls::{LocalTlsOptions, TlsOptions};

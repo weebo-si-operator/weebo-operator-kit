@@ -95,16 +95,20 @@ impl RoutingSecretStore {
             Some(ns) => Writer::Namespaced(ns),
             None => Writer::Cluster,
         };
-        let denied = |e| SecretStoreError(format!("target {:?}: {e}", target.name));
+        let denied =
+            |e: &dyn std::fmt::Display| SecretStoreError(format!("target {:?}: {e}", target.name));
+        let extra_ns = target.vault_namespace.as_deref();
         match (target.mount.as_deref(), target.path.as_deref()) {
-            (Some(mount), Some(path)) if mount != vault.mount() => {
+            // An additional mount: another name, or the same in another
+            // Vault namespace.
+            (Some(mount), Some(path)) if mount != vault.mount() || extra_ns.is_some() => {
                 let path = vault
-                    .check_mount_path(writer, mount, path)
-                    .map_err(denied)?;
-                return Ok((vault.on_mount(mount), path.to_string()));
+                    .check_mount_path_in(writer, extra_ns, mount, path)
+                    .map_err(|e| denied(&e))?;
+                return Ok((vault.on_mount_in(extra_ns, mount), path.to_string()));
             }
             (_, Some(path)) => {
-                let path = vault.check_path(writer, ns, path).map_err(denied)?;
+                let path = vault.check_path(writer, ns, path).map_err(|e| denied(&e))?;
                 return Ok((vault.on_mount(vault.mount()), path.to_string()));
             }
             // A mount without a path: refused by check_target above.

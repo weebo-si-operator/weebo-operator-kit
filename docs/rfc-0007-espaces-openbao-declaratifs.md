@@ -2,7 +2,7 @@
 
 | Champ      | Valeur |
 | ---------- | ------ |
-| Statut     | Draft |
+| Statut     | In review |
 | Court      | Espaces OpenBao déclaratifs |
 | Tranche    | Qui crée les mounts, policies, groupes et alias des espaces humains d'OpenBao, dans quels namespaces OpenBao, avec quels droits Vault, sans lier l'opérateur à un fournisseur d'identité |
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |

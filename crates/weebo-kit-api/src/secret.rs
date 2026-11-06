@@ -14,7 +14,7 @@ pub enum SecretStoreBackend {
 /// Where an emitted secret (generated password or key, OAuth2 credentials,
 /// access token) is written. A CR may list several targets — the same
 /// value is fanned out to each.
-#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 #[schemars(extend("x-weebo-produces" = {
     "kind": { "kind": "Secret" },
@@ -49,7 +49,18 @@ pub struct SecretTarget {
     /// instance's mount.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mount: Option<String>,
+    /// Vault only, with `mount`: the Vault namespace of that additional
+    /// mount, when the instance lists two additional mounts of the same name
+    /// in different Vault namespaces. Unset: the only additional mount of
+    /// that name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128), regex(pattern = VAULT_NAMESPACE_PATTERN))]
+    pub vault_namespace: Option<String>,
 }
+
+/// A Vault namespace path: segments of letters, digits, `_` and `-`
+/// separated by `/`, no leading or trailing `/`.
+pub const VAULT_NAMESPACE_PATTERN: &str = r"^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$";
 
 /// A path pattern: segments separated by `/`, each a literal, `+` (any one
 /// segment) or, last only, `*` (one or more segments).
@@ -77,6 +88,78 @@ pub struct VaultAdditionalMount {
     // the paths' CEL rules over the apiserver's cost budget.
     #[schemars(length(min = 1, max = 8))]
     pub path_grants: Vec<VaultPathGrant>,
+    /// The Vault namespace the mount lives in (sent as `X-Vault-Namespace`).
+    /// Unset: the namespace of the instance's own login. Two additional
+    /// mounts may share a name only in different namespaces.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(length(min = 1, max = 128), regex(pattern = VAULT_NAMESPACE_PATTERN))]
+    pub vault_namespace: Option<String>,
+    /// A login of its own for this mount, done in `vaultNamespace` on first
+    /// use. Unset: the instance's login. A failed login only fails the
+    /// targets on this mount.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auth: Option<VaultMountAuth>,
+}
+
+impl VaultAdditionalMount {
+    /// The additional mount a target names: `mount` in `namespace`, or,
+    /// with no namespace, the only additional mount called `mount`.
+    /// `Ok(None)`: no additional mount by that name. `Err`: several, the
+    /// target has to name its namespace.
+    pub fn resolve<'m>(
+        mounts: &'m [Self],
+        namespace: Option<&str>,
+        mount: &str,
+    ) -> Result<Option<&'m Self>, String> {
+        let mut named = mounts.iter().filter(|m| m.mount == mount);
+        if let Some(ns) = namespace {
+            return Ok(named.find(|m| m.vault_namespace.as_deref() == Some(ns)));
+        }
+        match (named.next(), named.next()) {
+            (Some(_), Some(_)) => Err(format!(
+                "mount {mount:?} is listed in several Vault namespaces: name its vaultNamespace"
+            )),
+            (first, _) => Ok(first),
+        }
+    }
+
+    /// The first `(vaultNamespace, mount)` pair listed twice, if any.
+    pub fn first_duplicate(mounts: &[Self]) -> Option<(Option<&str>, &str)> {
+        mounts.iter().enumerate().find_map(|(i, m)| {
+            let key = (m.vault_namespace.as_deref(), m.mount.as_str());
+            mounts
+                .get(..i)
+                .is_some_and(|before| {
+                    before
+                        .iter()
+                        .any(|b| (b.vault_namespace.as_deref(), b.mount.as_str()) == key)
+                })
+                .then_some(key)
+        })
+    }
+}
+
+/// How an additional mount logs in. One field per method; `kubernetes`
+/// only for now.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultMountAuth {
+    /// Vault's Kubernetes auth, with the operator's ServiceAccount token.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kubernetes: Option<VaultKubernetesAuth>,
+}
+
+/// A Kubernetes auth login: the auth mount and the role, in the mount's
+/// Vault namespace.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultKubernetesAuth {
+    /// The Kubernetes auth mount, e.g. `kubernetes`.
+    #[schemars(length(min = 1, max = 128))]
+    pub mount: String,
+    /// The role to log in with.
+    #[schemars(length(min = 1, max = 128))]
+    pub role: String,
 }
 
 /// Paths of the instance's secret backend that objects may write to
@@ -152,6 +235,58 @@ mod tests {
         let v: SecretTarget =
             serde_json::from_value(serde_json::json!({"name": "c", "backend": "vault"})).unwrap();
         assert_eq!(v.backend, SecretStoreBackend::Vault);
+    }
+
+    fn extra(mount: &str, ns: Option<&str>) -> VaultAdditionalMount {
+        VaultAdditionalMount {
+            mount: mount.into(),
+            vault_namespace: ns.map(String::from),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_mount_is_resolved_by_name_then_by_namespace() {
+        let mounts = [
+            extra("users", Some("users")),
+            extra("orgs", Some("devenv")),
+            extra("orgs", Some("prod")),
+        ];
+        let found = |ns, m| {
+            VaultAdditionalMount::resolve(&mounts, ns, m)
+                .map(|o| o.and_then(|m| m.vault_namespace.clone()))
+        };
+        assert_eq!(found(None, "users"), Ok(Some("users".into())));
+        assert_eq!(found(Some("prod"), "orgs"), Ok(Some("prod".into())));
+        assert_eq!(found(Some("recette"), "orgs"), Ok(None));
+        assert_eq!(found(None, "mv"), Ok(None));
+        assert!(found(None, "orgs").unwrap_err().contains("vaultNamespace"));
+    }
+
+    #[test]
+    fn a_pair_listed_twice_is_found() {
+        let ok = [extra("orgs", Some("devenv")), extra("orgs", Some("prod"))];
+        assert_eq!(VaultAdditionalMount::first_duplicate(&ok), None);
+        let twice = [
+            extra("orgs", Some("prod")),
+            extra("users", None),
+            extra("orgs", Some("prod")),
+        ];
+        assert_eq!(
+            VaultAdditionalMount::first_duplicate(&twice),
+            Some((Some("prod"), "orgs"))
+        );
+    }
+
+    #[test]
+    fn the_namespace_fields_carry_their_pattern() {
+        let schema = serde_json::to_value(schemars::schema_for!(VaultAdditionalMount)).unwrap();
+        assert_eq!(
+            schema["properties"]["vaultNamespace"]["pattern"],
+            VAULT_NAMESPACE_PATTERN
+        );
+        let target = serde_json::to_value(schemars::schema_for!(SecretTarget)).unwrap();
+        assert_eq!(target["properties"]["vaultNamespace"]["maxLength"], 128);
     }
 
     #[test]

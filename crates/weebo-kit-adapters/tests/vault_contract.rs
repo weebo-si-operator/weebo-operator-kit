@@ -10,8 +10,8 @@ use std::collections::BTreeMap;
 
 use serde_json::json;
 use weebo_kit_adapters::{CasWrite, PathMetadata, VaultConfig, VaultSecretStore};
-use weebo_kit_api::{VaultAdditionalMount, VaultPathGrant};
-use wiremock::matchers::{body_partial_json, method, path};
+use weebo_kit_api::{VaultAdditionalMount, VaultKubernetesAuth, VaultMountAuth, VaultPathGrant};
+use wiremock::matchers::{body_partial_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn spec(server: &MockServer) -> VaultConfig {
@@ -291,6 +291,7 @@ async fn invalid_additional_mounts_fail_before_any_login() {
             additional_mounts: vec![VaultAdditionalMount {
                 mount,
                 path_grants: vec![grant(&paths)],
+                ..Default::default()
             }],
             ..spec(&server)
         };
@@ -568,5 +569,181 @@ async fn check_and_set_writes_report_a_moved_version_as_a_conflict() {
     assert_eq!(
         store.write_path_cas("p", &new, 0).await.unwrap(),
         CasWrite::Conflict
+    );
+}
+
+fn users_mount(namespace: Option<&str>, auth: Option<(&str, &str)>) -> VaultAdditionalMount {
+    VaultAdditionalMount {
+        mount: "users".into(),
+        path_grants: vec![VaultPathGrant {
+            namespaces: vec!["ci".into()],
+            cluster_scoped: false,
+            paths: vec!["+/forgejo-token".into()],
+        }],
+        vault_namespace: namespace.map(String::from),
+        auth: auth.map(|(mount, role)| VaultMountAuth {
+            kubernetes: Some(VaultKubernetesAuth {
+                mount: mount.into(),
+                role: role.into(),
+            }),
+        }),
+    }
+}
+
+#[tokio::test]
+async fn an_additional_mount_sends_its_vault_namespace() {
+    let server = MockServer::start().await;
+    login(&server).await;
+    // Only answered with the namespace header: without it, wiremock's 404
+    // reads as "nothing stored", and the assertion below fails.
+    Mock::given(method("GET"))
+        .and(path("/v1/users/data/max/forgejo-token"))
+        .and(header("X-Vault-Namespace", "users"))
+        .respond_with(kv_response(json!({"token": "t"})))
+        .mount(&server)
+        .await;
+    let config = VaultConfig {
+        additional_mounts: vec![users_mount(Some("users"), None)],
+        ..spec(&server)
+    };
+    let store = VaultSecretStore::new(&config, "sa-jwt", None)
+        .await
+        .unwrap();
+    let read = store
+        .on_mount("users")
+        .read_path("max/forgejo-token")
+        .await
+        .unwrap();
+    assert_eq!(read, Some(BTreeMap::from([("token".into(), "t".into())])));
+    // The instance's own login only: no login of its own for this mount.
+    assert_eq!(logins(&server).await, 1);
+}
+
+/// A login in Vault namespace `ns` with `role`, answering `status`.
+async fn namespaced_login(server: &MockServer, ns: &str, role: &str, status: u16, token: &str) {
+    let response = if status == 200 {
+        ResponseTemplate::new(200).set_body_json(envelope(
+            serde_json::Value::Null,
+            json!({
+                "client_token": token, "accessor": "a", "policies": [],
+                "token_policies": [], "metadata": {}, "lease_duration": 900,
+                "renewable": true, "entity_id": "", "token_type": "service",
+                "orphan": true,
+            }),
+        ))
+    } else {
+        ResponseTemplate::new(status).set_body_json(json!({"errors": ["permission denied"]}))
+    };
+    Mock::given(method("POST"))
+        .and(path("/v1/auth/kubernetes/login"))
+        .and(header("X-Vault-Namespace", ns))
+        .and(body_partial_json(json!({"role": role})))
+        .respond_with(response)
+        .with_priority(1)
+        .mount(server)
+        .await;
+}
+
+#[tokio::test]
+async fn a_mount_with_its_own_login_logs_in_on_first_use_in_its_namespace() {
+    let server = MockServer::start().await;
+    login(&server).await;
+    namespaced_login(&server, "users", "grant_tokens", 200, "users-token").await;
+    Mock::given(method("GET"))
+        .and(path("/v1/users/data/max/forgejo-token"))
+        .and(header("X-Vault-Namespace", "users"))
+        .and(header("X-Vault-Token", "users-token"))
+        .respond_with(kv_response(json!({"token": "t"})))
+        .mount(&server)
+        .await;
+    let config = VaultConfig {
+        additional_mounts: vec![users_mount(
+            Some("users"),
+            Some(("kubernetes", "grant_tokens")),
+        )],
+        ..spec(&server)
+    };
+    let store = VaultSecretStore::new(&config, "sa-jwt", None)
+        .await
+        .unwrap();
+    assert_eq!(
+        logins(&server).await,
+        1,
+        "no login for the mount before its first use"
+    );
+    for _ in 0..2 {
+        let read = store
+            .on_mount("users")
+            .read_path("max/forgejo-token")
+            .await
+            .unwrap();
+        assert!(read.is_some());
+    }
+    assert_eq!(logins(&server).await, 2, "the mount's login, once");
+}
+
+#[tokio::test]
+async fn a_failed_mount_login_only_fails_that_mount() {
+    let server = MockServer::start().await;
+    login(&server).await;
+    namespaced_login(&server, "users", "grant_tokens", 403, "").await;
+    Mock::given(method("GET"))
+        .and(path("/v1/secret/data/weebo-example/ci/app"))
+        .respond_with(kv_response(json!({"k": "v"})))
+        .mount(&server)
+        .await;
+    let config = VaultConfig {
+        additional_mounts: vec![users_mount(
+            Some("users"),
+            Some(("kubernetes", "grant_tokens")),
+        )],
+        ..spec(&server)
+    };
+    let store = VaultSecretStore::new(&config, "sa-jwt", None)
+        .await
+        .unwrap();
+    for _ in 0..2 {
+        let err = store
+            .on_mount("users")
+            .read_path("max/forgejo-token")
+            .await
+            .unwrap_err();
+        assert!(err.0.contains("namespace \"users\""), "{}", err.0);
+    }
+    // Replayed, not retried: one failed login for two reads.
+    assert_eq!(logins(&server).await, 2);
+    let own = store.read_path("weebo-example/ci/app").await.unwrap();
+    assert!(own.is_some(), "the instance's mount still answers");
+}
+
+#[tokio::test]
+async fn a_mount_listed_twice_in_one_namespace_fails_before_any_login() {
+    let server = MockServer::start().await;
+    let config = VaultConfig {
+        additional_mounts: vec![
+            users_mount(Some("users"), None),
+            users_mount(Some("users"), None),
+        ],
+        ..spec(&server)
+    };
+    let err = VaultSecretStore::new(&config, "sa-jwt", None)
+        .await
+        .err()
+        .expect("refused");
+    assert!(err.0.contains("twice"), "{}", err.0);
+    let other_namespace = VaultConfig {
+        additional_mounts: vec![
+            users_mount(Some("users"), None),
+            users_mount(Some("users2"), None),
+        ],
+        ..spec(&server)
+    };
+    assert_eq!(logins(&server).await, 0);
+    // The same name in two namespaces is two mounts.
+    login(&server).await;
+    assert!(
+        VaultSecretStore::new(&other_namespace, "sa-jwt", None)
+            .await
+            .is_ok()
     );
 }

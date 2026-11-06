@@ -17,7 +17,7 @@ use weebo_kit_adapters::{
 };
 use weebo_kit_api::{SecretStoreBackend, SecretTarget, VaultAdditionalMount, VaultPathGrant};
 use weebo_kit_application::ports::{SecretOwner, SecretStore};
-use wiremock::matchers::{body_partial_json, method, path};
+use wiremock::matchers::{body_partial_json, header, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn envelope(data: serde_json::Value, auth: serde_json::Value) -> serde_json::Value {
@@ -98,6 +98,7 @@ fn vault_target(name: &str, path: Option<&str>) -> SecretTarget {
         namespace: None,
         path: path.map(String::from),
         mount: None,
+        vault_namespace: None,
     }
 }
 
@@ -259,6 +260,7 @@ async fn vault_is_resolved_once_and_only_when_a_target_needs_it() {
         namespace: None,
         path: None,
         mount: None,
+        vault_namespace: None,
     };
     assert!(!store.exists(&kubernetes_target, &OWNER).await.unwrap());
     assert_eq!(resolved.load(Ordering::SeqCst), 0);
@@ -849,6 +851,7 @@ async fn an_additional_mount_takes_only_the_paths_its_grants_open() {
         vec![VaultAdditionalMount {
             mount: "users".into(),
             path_grants: vec![grant(&["team-*"], &["+/forgejo-token"])],
+            ..Default::default()
         }],
     )
     .await;
@@ -887,4 +890,54 @@ async fn an_additional_mount_takes_only_the_paths_its_grants_open() {
         .write(&on("secret", "shared/x"), &OWNER, &data)
         .await
         .expect_err("outside the subtree, no grant");
+}
+
+#[tokio::test]
+async fn a_target_picks_one_of_two_mounts_of_a_name_by_its_vault_namespace() {
+    let server = MockServer::start().await;
+    // Only prod's write is answered, and only with prod's namespace header.
+    for (m, p) in [("GET", "metadata"), ("GET", "data")] {
+        Mock::given(method(m))
+            .and(path(format!("/v1/orgs/{p}/acme/app/ci")))
+            .and(header("X-Vault-Namespace", "prod"))
+            .respond_with(ResponseTemplate::new(404).set_body_json(json!({"errors": []})))
+            .mount(&server)
+            .await;
+    }
+    Mock::given(method("POST"))
+        .and(path("/v1/orgs/metadata/acme/app/ci"))
+        .and(header("X-Vault-Namespace", "prod"))
+        .respond_with(ResponseTemplate::new(204))
+        .mount(&server)
+        .await;
+    Mock::given(method("POST"))
+        .and(path("/v1/orgs/data/acme/app/ci"))
+        .and(header("X-Vault-Namespace", "prod"))
+        .respond_with(written(1))
+        .expect(1)
+        .mount(&server)
+        .await;
+    let orgs = |ns: &str| VaultAdditionalMount {
+        mount: "orgs".into(),
+        vault_namespace: Some(ns.into()),
+        path_grants: vec![grant(&["team-*"], &["acme/+/ci"])],
+        ..Default::default()
+    };
+    let vault = vault_with_mounts(
+        &server,
+        "weebo-example",
+        vec![],
+        vec![orgs("devenv"), orgs("prod")],
+    )
+    .await;
+    let store = RoutingSecretStore::new(kubernetes(&server), Ok(vault), SecretStoreBackend::Vault);
+    let data = BTreeMap::from([("k".to_string(), "v".to_string())]);
+    let on = |ns: Option<&str>| SecretTarget {
+        mount: Some("orgs".into()),
+        vault_namespace: ns.map(String::from),
+        ..vault_target("ci", Some("acme/app/ci"))
+    };
+    store.write(&on(Some("prod")), &OWNER, &data).await.unwrap();
+    let err = store.write(&on(None), &OWNER, &data).await.unwrap_err();
+    assert!(err.0.contains("vaultNamespace"), "{}", err.0);
 }

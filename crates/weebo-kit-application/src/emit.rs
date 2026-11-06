@@ -25,6 +25,7 @@ pub fn targets(
         namespace: None,
         path: None,
         mount: None,
+        vault_namespace: None,
     }]
 }
 
@@ -51,12 +52,21 @@ pub enum TargetViolation {
     /// `mount` without `path`: an additional mount has no default path.
     #[error("secret target {name:?} names Vault mount {mount:?}, which needs an explicit path")]
     MountWithoutPath { name: String, mount: String },
+    /// `vaultNamespace` without `mount`: it only picks among additional
+    /// mounts of the same name.
+    #[error("secret target {name:?} names a Vault namespace but no mount")]
+    VaultNamespaceWithoutMount { name: String },
 }
 
 /// The namespace rules of a target, checked before anything is written
 /// (and again by the stores): a namespaced CR's targets stay in its own
 /// namespace, a cluster-scoped CR's name one.
 pub fn check_target(target: &SecretTarget, owner: &SecretOwner<'_>) -> Result<(), TargetViolation> {
+    if target.vault_namespace.is_some() && target.mount.is_none() {
+        return Err(TargetViolation::VaultNamespaceWithoutMount {
+            name: target.name.clone(),
+        });
+    }
     if let Some(mount) = &target.mount {
         if target.backend != SecretStoreBackend::Vault {
             return Err(TargetViolation::MountWithoutVault {
@@ -145,6 +155,7 @@ mod tests {
             namespace: None,
             path: None,
             mount: None,
+            vault_namespace: None,
         }
     }
 

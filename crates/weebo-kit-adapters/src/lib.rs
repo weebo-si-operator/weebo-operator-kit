@@ -29,6 +29,7 @@ pub use secret_k8s::{K8sSecretStore, MANAGED_BY_LABEL};
 pub use secret_ref::{TokenSecretError, read_local_instance_token, read_secret_key};
 pub use secret_routing::{RoutingSecretStore, VaultResolver};
 pub use secret_vault::{
-    CasWrite, PathMetadata, VaultConfig, VaultLoginError, VaultLogins, VaultSecretStore,
+    CasWrite, PathMetadata, VaultConfig, VaultLogin, VaultLoginError, VaultLogins,
+    VaultSecretStore, VaultSession,
 };
 pub use workloads::{KubeOwnedObjects, KubePodLogs, WorkloadSettings, is_ours};
