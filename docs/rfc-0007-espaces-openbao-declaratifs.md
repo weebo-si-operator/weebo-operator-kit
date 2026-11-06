@@ -8,7 +8,7 @@
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 14 ; revue finale à six lentilles le même jour, sept questions rouvertes (§15, 15 à 21) |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) |
 | Remplace   | — |
 | Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{spaces,forgejo,auth-base}.tf`, `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
@@ -360,8 +360,12 @@ spec:
   rendu actuel de `vault-spaces.tf`.
 - **Un sujet** nomme des ServiceAccounts par `namespace` et `name` (globs
   `*` en tête ou en fin, comme `bound_service_account_*` d'OpenBao), ou par
-  `namespaceSelector`, un sélecteur de labels de namespaces Kubernetes rendu en
-  `bound_service_account_namespace_selector`. Le sélecteur est la forme la
+  `namespaceSelector`, un `matchLabels` non vide rendu en JSON dans
+  `bound_service_account_namespace_selector`. **Un rôle Kubernetes par
+  sujet**, `grant_<nom>_<i>` (décision 18) : OpenBao compare nom et
+  namespace à deux listes séparées, un rôle à plusieurs sujets en
+  accepterait les combinaisons croisées. Un sujet à sélecteur compte comme un
+  sujet large (§4.3, règles à `{sa.namespace}`). Le sélecteur est la forme la
   plus étroite pour « les workloads d'une org » : seuls les namespaces portant
   le label passent. Il demande au ServiceAccount d'OpenBao `get` sur les
   namespaces (TokenReview fait déjà partie de ses droits).
@@ -534,7 +538,11 @@ crate `importer` : il n'y a rien à reprendre (§13).
   (`vaultrs` ne cherche que par ID : l'adaptateur lit le groupe par nom, qui
   contient ses alias). Le `client_secret` se lit avec `read_secret_key` du
   kit.
-- **Kit** : deux champs optionnels sur `VaultAdditionalMount`, pour qu'un
+- **Kit** (périmètre fixé par la décision 19 : login par mount à la première
+  utilisation et échec confiné à ce mount, unicité de `(vaultNamespace,
+  mount)` et `vaultNamespace` sur `SecretTarget`, une session Vault publique
+  réutilisée par weebo-openbao) : deux champs optionnels sur
+  `VaultAdditionalMount`, pour qu'un
   opérateur écrive dans un namespace avec l'identité qu'un grant y a créée
   (§6.4) :
   - `vaultNamespace` : l'en-tête `X-Vault-Namespace` des requêtes vers ce
@@ -679,13 +687,23 @@ path "sys/namespaces/${ns}" { capabilities = ["update", "read"] }
 
 # Mounts : les seuls noms possibles sont les types (énumération fermée).
 path "${ns}/sys/mounts"       { capabilities = ["read"] }
-path "${ns}/sys/mounts/orgs"  { capabilities = ["update", "read"] }
-path "${ns}/sys/mounts/users" { capabilities = ["update", "read"] }
+path "${ns}/sys/mounts/orgs" {
+  capabilities       = ["update", "read"]
+  allowed_parameters = { "type" = ["kv-v2"], "*" = [] }   # décision 16
+}
+path "${ns}/sys/mounts/users" {
+  capabilities       = ["update", "read"]
+  allowed_parameters = { "type" = ["kv-v2"], "*" = [] }
+}
 
 # Backends d'auth : activer, configurer, un rôle. "+" et non "*" : le glob
 # couvrirait <nom>/tune.
 path "${ns}/sys/auth"           { capabilities = ["read"] }
-path "${ns}/sys/auth/+"         { capabilities = ["update", "read", "sudo"] }
+# Seuls oidc et kubernetes (décision 16) : ni approle, ni userpass.
+path "${ns}/sys/auth/+" {
+  capabilities       = ["update", "read", "sudo"]
+  allowed_parameters = { "type" = ["oidc", "kubernetes"], "*" = [] }
+}
 path "${ns}/auth/+/config"      { capabilities = ["create", "read", "update"] }
 # Rôle OIDC des humains : aucune policy portée par le rôle, sauf user_space.
 path "${ns}/auth/+/role/default" {
@@ -701,6 +719,10 @@ path "${ns}/auth/+/role/grant_*" {
 }
 
 # Policies : les trois familles que l'opérateur rend, et elles seules.
+# list : des noms seulement, pour retrouver les objets marqués sans CR
+# (décision 20, revient sur « aucun list »).
+path "${ns}/sys/policies/acl"   { capabilities = ["list"] }
+path "${ns}/identity/group/name" { capabilities = ["list"] }
 path "${ns}/sys/policies/acl/user_space" { capabilities = ["create", "read", "update", "delete"] }
 path "${ns}/sys/policies/acl/org_*"      { capabilities = ["create", "read", "update", "delete"] }
 path "${ns}/sys/policies/acl/grant_*"    { capabilities = ["create", "read", "update", "delete"] }
@@ -753,8 +775,11 @@ Ce que cette policy refuse, et que §6.P vérifie un par un :
   de `vaultrs`, qui sérialisent des listes et ajoutent `name` au corps du
   groupe (refusé lui aussi). La séparation des familles n'est donc pas une
   frontière, même contre un bug : question 16 et T15 ;
-- aucun `list` : l'opérateur lit par nom ce qu'il a déclaré, il n'énumère
-  pas.
+- aucun `list` hors des noms de policies et de groupes de chaque namespace
+  (décision 20, pour le nettoyage des objets marqués sans CR) : il ne liste
+  ni mounts, ni backends, ni rôles, ni alias, ni données ;
+- aucun `type` de backend hors `oidc` et `kubernetes`, aucun mount hors
+  `kv-v2` (décision 16) : ni `approle`, ni `userpass`.
 
 `sudo` sur `<ns>/sys/auth/+` est exigé par OpenBao pour activer un backend.
 Il ne vaut que dans le namespace (§6.P n°2). `mount_accessor` des alias n'est
@@ -805,8 +830,9 @@ backend : `oidc_discovery_url`, `oidc_client_id`, `oidc_client_secret`,
 Un backend `kubernetes` : `kubernetes_host` (par défaut
 `https://kubernetes.default.svc`), et la CA et le jeton du pod OpenBao pour
 la TokenReview (`disable_local_ca_jwt = false`), comme le backend
-`kubernetes` du root que bank-vaults configure. Champs optionnels
-`host` et `caCertRef` pour un autre cluster.
+`kubernetes` du root que bank-vaults configure. Pas de `host` ni de
+`caCertRef` en v1 (décision 18) : le jeton du pod OpenBao partirait vers
+l'hôte nommé.
 
 Le grant `repo-workloads-read-own` de §4.1 donne, dans `devenv`, la policy et
 le rôle :
@@ -1606,76 +1632,48 @@ Choix du brouillon, gardés :
 | CEL, pas de webhook | Rien dans le chemin d'admission, pas de dépendance au démarrage |
 | Liste des namespaces permis dans Terraform | Un namespace se crée dans le root, la borne doit être dans OpenBao et non dans le code. Ajouter un env est rare |
 
+Tranchées par Max le 2026-11-06, après la revue finale (six lentilles) :
+
+15. **Un groupe externe par (org, rôle, backend `oidc`)**,
+    `org_<org>_<rôle>_<backend>`, chacun avec son alias et la même policy. Un
+    groupe OpenBao ne porte qu'un alias (constaté) ; deux IdP marchent
+    ensemble, et une migration d'IdP se fait sans coupure.
+16. **Contraindre ce qui peut l'être, détecter le reste.** `type` borné à
+    `oidc`/`kubernetes` sur `sys/auth/+` et à `kv-v2` sur les mounts (§6.1),
+    policies envoyées en chaîne seule sans virgule hors des requêtes typées de
+    `vaultrs`. Résiduel accepté : un opérateur compromis lit les espaces,
+    jamais le root ; l'audit alerte sur un rôle `grant_*` lié au namespace
+    `weebo-openbao` et sur toute écriture de config d'auth.
+17. **Alphabet strict des chemins de règles, refuser plutôt qu'échapper** :
+    segments `^[a-z0-9._-]+$`, `+`, `*` final, les trois jetons entiers, pour
+    `path` comme pour `metadataPath`. CEL, revalidation du domaine, test qui
+    parse le HCL rendu, fuzz sur des octets arbitraires.
+18. **Un rôle Kubernetes par sujet**, sélecteur en `matchLabels` non vide
+    traité comme un sujet large, pas de `host` ni de `caCertRef` en v1 (§4.1,
+    §6.2).
+19. **Les trois chantiers du kit dans la release de la phase 1** : login par
+    mount à la première utilisation, échec confiné à ce mount ; unicité de
+    `(vaultNamespace, mount)` et `vaultNamespace` sur `SecretTarget` ; une
+    session Vault publique (login, relogin, `lookup-self` dans le root,
+    erreurs qui gardent le code HTTP), réutilisée par weebo-openbao. Sans
+    rupture de signature.
+20. **`list` sur `<ns>/sys/policies/acl` et `<ns>/identity/group/name`**,
+    contre la décision « aucun `list` » de §7.7 : un passage de nettoyage
+    trouve les objets marqués `managed-by` sans CR, en advisory, supprimés
+    sous `allow-disruptive-update`.
+21. **Un finalizer `in-use` sur l'`OpenbaoInstance`** : elle ne part pas
+    tant qu'une CR la cite, et les finalizers des orgs et des grants peuvent
+    toujours se connecter. **Non retenus**, contre la recommandation : une
+    application ArgoCD à part avec `Prune=false` pour les CRs, et un
+    `force-orphan` qui retire quand même les accès. Risques acceptés :
+    retirer le chart (ou `enabled: false`) retire tous les accès humains et
+    machines d'un coup ; un `force-orphan` laisse des accès vivants sans CR,
+    que seul le nettoyage de la décision 20 retrouve.
+
 ### Encore ouvertes
 
-Rouvertes par la revue finale du 2026-11-06 (six lentilles : expérience,
-sécurité, résilience, qualité du code, stabilité, honnêteté). Les points
-vérifiés sur OpenBao 2.7.1 le sont depuis une sonde podman du même jour.
-
-15. **Un IdP de plus sans coupure (bloquant).** Un groupe externe ne porte
-    qu'un alias : le second remplace le premier (constaté). Deux formes :
-    un groupe par (org, rôle, backend), `org_<org>_<rôle>_<backend>`, chacun
-    avec son alias, ce qui multiplie les objets par le nombre de backends
-    `oidc` ; ou un seul backend `oidc` par namespace (CEL), et la migration
-    d'IdP se fait par bascule, avec une coupure. **Recommandation** : un
-    groupe par backend, la neutralité vis-à-vis de l'IdP (§3) en dépend.
-16. **Ce que la policy de l'opérateur peut vraiment borner (bloquant).** Les
-    globs d'`allowed_parameters` refusent toute liste JSON et laissent passer
-    une chaîne à virgules (constaté) : les familles `org_*`/`grant_*`/
-    `user_space` ne sont pas une frontière. L'opérateur peut aussi activer
-    `approle` (constaté), écrire `pem_keys` ou un autre IdP dans
-    `auth/+/config`, et se lier lui-même par un rôle `grant_*` : il lit alors
-    tous les espaces. À trancher : contraindre `type` sur `sys/auth/+`
-    (`oidc`, `kubernetes`) et sur les mounts (`kv-v2`), envoyer les policies en
-    chaîne seule hors des requêtes typées de `vaultrs`, et accepter le reste
-    comme résiduel détecté par l'audit (une alerte sur tout rôle `grant_*` lié
-    au namespace `weebo-openbao`) ; ou séparer en deux identités (une qui
-    écrit les backends, une qui écrit policies et groupes). **Recommandation** :
-    la première, la seconde ne change pas ce qu'un attaquant peut atteindre.
-17. **Injection HCL par les chemins de règles (bloquant).** `PATH_PATTERN`
-    laisse passer `"`, `{`, `}`, `#`, espaces et retours à la ligne dans un
-    segment : un chemin de grant peut ajouter un bloc `path "*"`. Il faut un
-    alphabet de segment propre aux règles (`^[a-z0-9._-]+$`, plus `+`, `*` final
-    et les trois jetons entiers), appliqué aussi à `metadataPath`, et un test
-    qui parse le HCL rendu. **Recommandation** : cet alphabet, sans
-    échappement (refuser plutôt qu'échapper).
-18. **Sujets d'un grant en produit croisé.** Un rôle Kubernetes compare le
-    nom et le namespace du ServiceAccount à deux listes séparées : les sujets
-    `{a, x}` et `{b, y}` laissent aussi passer `a/y` et `b/x`. Le sélecteur
-    est un `LabelSelector` `matchLabels` (JSON), et `{}` vaut « tous les
-    namespaces ». **Recommandation** : un rôle par sujet
-    (`grant_<nom>_<i>`), un sélecteur modélisé en `matchLabels` non vide et
-    traité comme un sujet large (règles à `{sa.namespace}`), pas de `host`
-    ni de `caCertRef` en v1 sur un backend `kubernetes` (sinon le jeton
-    d'OpenBao part vers l'hôte nommé).
-19. **Le changement du kit est plus gros que deux champs.** `VaultSecretStore`
-    n'a qu'un client et se connecte d'emblée (`secret_vault.rs`), deux
-    `additionalMounts` de même nom `orgs` dans deux namespaces ne se
-    distinguent pas (`find(|m| m.mount == mount)`), et le login, le relogin
-    et `token_is_stale` sont privés. À trancher : login par mount à la
-    première utilisation, échec confiné à ce mount ; unicité de
-    `(vaultNamespace, mount)` et `vaultNamespace` sur `SecretTarget` ; une
-    session publique dans le kit, réutilisée par weebo-openbao, avec des
-    erreurs qui gardent le code HTTP (`SecretStoreError` n'est qu'une
-    chaîne) et un `lookup-self` fait dans le root seulement.
-    **Recommandation** : les trois, dans la release du kit de la phase 1.
-20. **Ne se souvenir de ses objets que par le status.** Sans `list`, un objet
-    créé puis oublié par le status (restauration raft plus ancienne que les
-    CRs, `force-orphan`) reste en place et accorde toujours. À trancher :
-    rendre `list` sur `<ns>/sys/policies/acl` et `<ns>/identity/group/name`
-    (des noms, pas de secrets) pour un passage de nettoyage des objets marqués
-    `managed-by` sans CR ; ou garder le moindre privilège et documenter la
-    procédure après restauration. **Recommandation** : rendre `list` sur ces
-    deux chemins, contre la décision « aucun `list` » de §7.7.
-21. **Supprimer sans tout couper, ni rester coincé.** Retirer le chart ou
-    désactiver `enabled` supprime les CRs, et les finalizers retirent tous
-    les accès ; si l'`OpenbaoInstance` part la première, les finalizers ne
-    peuvent plus se connecter et les CRs restent `Terminating`.
-    `force-orphan` laisse au contraire des accès vivants sans CR. À trancher :
-    finalizer `in-use` sur l'instance, CRs dans une application ArgoCD à
-    part avec `Prune=false`, et `force-orphan` qui retire quand même ce qui
-    accorde (alias, rôle) et ne garde que les données. **Recommandation** :
-    les trois.
+Aucune. Les points de la revue qui ne demandaient pas de décision restent à
+reporter dans le texte (liste en fin de section).
 
 Faits, pas des questions, à régler avant la phase 3 (revue de stabilité) :
 le working tree de weebo-si porte des changements non commités hors des deux
