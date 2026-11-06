@@ -8,9 +8,9 @@
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, écarts en §17 |
 | Remplace   | — |
-| Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{spaces,forgejo,auth-base}.tf`, `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
+| Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,spaces,forgejo}.tf`, `2.argo/helm/vault/{main,sub}` (opérateur, `OpenbaoInstance`, device d'audit), `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
 
 > Document de référence (~14 000 mots avec le code) : §1 à §3, §7.1 et §15
@@ -1729,3 +1729,96 @@ contrôle de §7) arrive avant la première CR (la surface), et la sonde de
 | 4 | Côté IdP : client OIDC et Secret. Les `OpenbaoAccessLevel`, les cinq `OpenbaoNamespace`, le layout, `OpenbaoOrganization/batleforc-org` avec ses groupes | §6.P n°5, 6 et 9 |
 | 5 | Modèle machine : grant `forgejo-user-tokens`, weebo-forgejo au nouveau kit avec son entrée `users`. Retrait de `user_space` du rôle `reader` du root | §6.P n°7 |
 | 6 | Doc `Infra/openbao.mdx` (les deux modèles, le login par namespace, « donner un accès à un système »), alertes ClickStack, budget `weebo-kit-perf` | §6.P n°11 et 12 |
+
+---
+
+## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 3
+
+Phases 0 à 3 livrées le 2026-11-06. Les sections 1 à 16 restent le texte
+relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
+`In review` jusqu'à la phase 6.
+
+### 17.1 Ce qui a été livré
+
+| Phase | Livré | Où |
+| --- | --- | --- |
+| 0 | §6.P n°1 : **branche A confirmée en live**. Root : aucun mount `users`/`orgs-*`, aucune policy `user_space`/`org_*`, aucun groupe `org_*`, aucun namespace. | sonde `bao` dans `openbao-0` |
+| 1 | `VaultAdditionalMount.{vaultNamespace, auth}`, `SecretTarget.vaultNamespace`, `VaultSession` public | kit v0.28.0 à v0.29.0 |
+| 2 | Dépôt `weebo-openbao` : six CRDs, CEL, rendu des règles, use-cases, adaptateur, envtest, `test:live-openbao` | weebo-openbao v0.1.0 à v0.1.3 |
+| 3 | Device d'audit, puis policy et rôle Terraform, NetworkPolicy, AppProject `infra`, opérateur et `OpenbaoInstance/main` | weebo-si `02faf128`, `a0c513de`, `9f8d6b9c` |
+
+### 17.2 Écarts au texte
+
+1. **La CA d'OpenBao se lit dans le namespace de l'opérateur, pas dans
+   `vault`** (contre §6.6, « `get` du Secret `vault/openbao-tls` » dans le
+   ClusterRole). bank-vaults copie `openbao-tls` dans tous les namespaces
+   (`caNamespaces: "*"`). Le kit v0.30.0 ajoute au chart de bibliothèque
+   `clusterSecrets: false` et `releaseSecrets` : le ClusterRole de
+   weebo-openbao ne porte **aucune** règle sur les Secrets, et son Role ne
+   donne que `get` sur `openbao-oidc` et `openbao-tls`, par nom, dans
+   `weebo-openbao`. C'est plus étroit que le texte.
+2. **Le device d'audit est déclaratif, sur stdout** (question 5, que le texte
+   laissait ouverte sur la forme). Il est déclaré dans `config.audit` du CR
+   `Vault` (`2.argo/helm/vault/sub/templates/vaultInstance/instance.yaml`).
+   OpenBao 2.7.1 refuse `bao audit enable` (« cannot enable audit device via
+   API; use declarative, config-based audit device management »), mesuré en
+   podman puis en live : aucun token, root compris, ne peut l'ajouter ni le
+   retirer. Les valeurs y sont en HMAC, messages d'erreur compris.
+3. **La policy de l'opérateur vit dans `weebo-openbao.tf`**, pas dans
+   `auth-base.tf` (§6.1). C'est un fichier par consommateur, comme
+   `forgejo.tf` ou `angos.tf`. Le texte HCL est celui de §6.1, et
+   `test:live-openbao` charge les mêmes lignes. Rendue pour les cinq
+   namespaces, elle compte 85 chemins.
+4. **Ordre audit puis policy, tenu en substance seulement.** Le job Terraform
+   a créé la policy environ quinze minutes avant que l'audit soit actif, parce
+   que la synchro automatique de `vault-app` était coupée en live et que cette
+   synchro a été faite à la main ensuite, avec l'accord de Max (elle
+   redémarre OpenBao). Aucune `OpenbaoInstance` n'existait dans cet
+   intervalle, et l'opérateur ne s'est pas connecté.
+5. **Egress de l'opérateur non restreint** (contre §6.6). La NetworkPolicy du
+   chart demande l'adresse de l'apiserver, propre au cluster, et aucun
+   opérateur frère ne l'active encore. Ce point reste à faire, avec les
+   autres opérateurs.
+6. **`spaces.tf` et `vault-spaces.tf` ont été commités** (`049a17c9`,
+   « feat: wip »), contre §13 qui les disait jamais commités. Ils ne figurent
+   dans aucune `kustomization.yaml` : le job PostSync ne les a jamais vus, et
+   la sonde du point 0 le confirme. La branche A tient. Ils sont supprimés en
+   phase 4.
+7. **Défauts du template, trouvés au déploiement.** v0.1.0 bloquée par
+   CVE-2026-84243 (glibc, sans correctif) : même exception datée que les
+   autres opérateurs, jusqu'au 2026-12-06. v0.1.1 livrait deux CRDs du
+   template sans contrôleur (`OpenbaoLocalInstance`, `OpenbaoObject`), parce
+   que `task recu` ne supprimait pas les CRDs des kinds retirés. v0.1.2
+   tirait son image de `ghcr.io/batleforc`, où rien n'est publié. Le
+   template est corrigé dans le kit v0.30.1.
+
+### 17.3 Ce que la preuve a observé
+
+- §6.P n°2 et 3 : mesurés en podman sur 2.7.1 (phase 0) et rejoués par
+  `test:live-openbao`.
+- **§6.P n°4 et T1, en live.** Connecté avec le ServiceAccount
+  `weebo-openbao/weebo-openbao`, le token ne porte que `default` et
+  `weebo_openbao_operator`. Sont refusés en 403 :
+  - lire `weebo_admin` ;
+  - écrire une policy dans le root ;
+  - `namespace list` ;
+  - lire `mv/argocd/auth` ;
+  - `auth list`, `secrets list` et `audit list` ;
+  - lire un namespace hors des bornes.
+
+  Chaque requête apparaît dans l'audit. Le token de sonde a été révoqué.
+- `OpenbaoInstance/main` est `Ready`, raison `Reconciled`, message
+  « OpenBao answers the operator's login ».
+
+### 17.4 Reste du texte à reprendre (revue finale, sans effet sur le design)
+
+- Une remédiation par reason code.
+- Les colonnes `kubectl`.
+- Le type de chaque Event.
+- L'audience des rôles Kubernetes.
+- L'alternative « garder Terraform » en §12.
+- La liste exacte des fichiers de weebo-si en en-tête : faite ici en
+  partie.
+- Quatre reason codes du template (`InstanceAmbiguous`, `InstanceNotAllowed`,
+  `InstanceBindingChanged`, `TokenSecretNotAllowed`) ne servent pas dans
+  weebo-openbao et restent à retirer.
