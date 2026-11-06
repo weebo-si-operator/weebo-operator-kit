@@ -6,9 +6,9 @@ version: 0.1.0
 appVersion: "0.1.0"
 # Native `preStop: sleep` and the admission/policy APIs used here.
 kubeVersion: ">=1.30.0-0"
-home: https://github.com/batleforc/{{project-name}}
+home: https://github.com/weebo-si-operator/{{project-name}}
 sources:
-  - https://github.com/batleforc/{{project-name}}
+  - https://github.com/weebo-si-operator/{{project-name}}
 keywords:
   - {{product | downcase}}
   - operator

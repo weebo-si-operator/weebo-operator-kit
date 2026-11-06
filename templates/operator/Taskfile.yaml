@@ -51,6 +51,8 @@ tasks:
   recu:
     desc: "Regenerate every committed artifact: the CRDs (crdgen) and their copies in the chart"
     cmds:
+      # crdgen writes the kinds it knows: a removed kind's CRD would stay.
+      - find deploy/crd -maxdepth 1 -name '*.yaml' -delete 2>/dev/null || true
       - mise exec -- cargo run -q -p crdgen -- --out deploy/crd/
       # The chart ships the CRDs as templates (Helm never upgrades crds/),
       # under `crds.install` + `helm.sh/resource-policy: keep`.
