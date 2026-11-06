@@ -8,7 +8,7 @@
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, écarts en §17 |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée et pas encore vérifiée, écarts et point de reprise en §17 |
 | Remplace   | — |
 | Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,spaces,forgejo}.tf`, `2.argo/helm/vault/{main,sub}` (opérateur, `OpenbaoInstance`, device d'audit), `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
@@ -1732,7 +1732,7 @@ contrôle de §7) arrive avant la première CR (la surface), et la sonde de
 
 ---
 
-## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 3
+## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 3, phase 4 en cours
 
 Phases 0 à 3 livrées le 2026-11-06. Les sections 1 à 16 restent le texte
 relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
@@ -1822,3 +1822,70 @@ relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
 - Quatre reason codes du template (`InstanceAmbiguous`, `InstanceNotAllowed`,
   `InstanceBindingChanged`, `TokenSecretNotAllowed`) ne servent pas dans
   weebo-openbao et restent à retirer.
+
+### 17.5 Phase 4 : poussée, pas encore vérifiée (point de reprise)
+
+Poussée dans weebo-si (`c4e62809`, branche `develop`). Le suivi a été
+interrompu avant la réconciliation. Rien de ce qui suit n'a encore été
+observé côté OpenBao.
+
+**Ce qui a été livré.**
+
+| Où | Quoi |
+| --- | --- |
+| `2.argo/helm/auth/{main,sub}/values.yaml` | Application Authentik `openbao`, client OIDC des namespaces, distincte de `vault` (le root). `accessGroup: weebo_user`. Une redirect URI par namespace (`…/oidc/callback?namespace=<ns>`) et celle du CLI. Le secret est écrit en `mv/weebo-openbao/oidc` (`secretTargets`, d'où un `pathGrants` de l'instance pour `auth`). Groupes `batleforc-org_{owner,maintainer,dev}`, et `batleforc` est membre de `batleforc-org_owner` |
+| `2.argo/helm/vault/spaces` (nouveau chart) | SecretStore et ExternalSecret `openbao-oidc` (clé `client-secret` ← `AUTHENTIK_CLIENT_SECRET`, rôle `auth-read`, SA `default`). Niveaux `read`, `write`, `owner`. Les cinq `OpenbaoNamespace` des bornes (`users` : `[users]`, les autres : `[orgs]`), chacun avec un backend `authentik` (oidc) et un backend `kubernetes`. Layout `weebo` et `OpenbaoOrganization/batleforc-org` |
+| `2.argo/helm/vault/main/templates/openbao/spaces.yaml` | Application `openbao-spaces`, synchro automatique, **sans prune**. Elle est séparée de `vault-app`, dont la synchro est manuelle et redémarre OpenBao |
+| `2.terra/vault/terra-map/auth-base.tf` | `auth-read` lie aussi le namespace `weebo-openbao` |
+| Branche A | `spaces.tf` et `vault-spaces.tf` supprimés |
+
+Vérifié avant de pousser :
+
+- Les dix CRs passent un `kubectl apply --dry-run=server` contre les CRDs
+  live (schéma, CEL, webhook).
+- Le rendu de l'`AuthentikInstance` contient le `pathGrants` de
+  `weebo-openbao/oidc`.
+
+**État à l'interruption** (2026-11-06) :
+
+- `openbao-spaces` : `OutOfSync` et `Degraded`.
+- ExternalSecret `openbao-oidc` : `SecretSyncedError`.
+- Aucun `OpenbaoNamespace` ni `OpenbaoOrganization` créé.
+
+Les vagues expliquent le blocage : l'ExternalSecret est en vague 0, donc tant
+qu'il n'est pas sain, Argo n'applique pas les vagues suivantes. Causes
+probables, **non vérifiées** :
+
+- le job Terraform qui ajoute `weebo-openbao` à `auth-read` n'a pas encore
+  tourné ;
+- ou weebo-authentik n'a pas encore écrit `mv/weebo-openbao/oidc` :
+  l'application `openbao` attend que l'`AuthentikInstance` porte le nouveau
+  `pathGrants`.
+
+**Pour reprendre :**
+
+1. `kubectl -n weebo-openbao describe externalsecret openbao-oidc` : le
+   message dit si c'est le login (`auth-read`) ou la clé absente.
+2. `kubectl -n auth get authentikapplication openbao` et son `Ready`. Puis
+   les logs du job `terra-job-vault` pour `auth-read`.
+3. **Défaut de conception à corriger.** Le Secret ne devrait pas bloquer les
+   namespaces : l'opérateur sait déjà dire `SecretUnavailable` sur le seul
+   backend `authentik`. Sortir l'ExternalSecret des vagues, ou le mettre dans
+   une vague qui ne précède pas les CRs, puis resynchroniser
+   `openbao-spaces`.
+4. Puis les preuves de §6.P :
+   - n°5 : parité du rendu ;
+   - n°6 : un humain, au travers du vrai login, dans `devenv`, `preprod`,
+     `prod` et `users` ;
+   - n°9 : suppression d'une org `test`.
+
+**Écarts déjà connus** par rapport à §4.1 :
+
+- L'hôte est `vault.weebo.poc` et non `openbao.weebo.fr`, et le
+  `discoveryUrl` est `https://auth.weebo.poc/application/o/openbao/`.
+- Pas encore de niveau `token-writer` : il sert aux grants, en phase 5.
+- Le stash `stash@{0}` de weebo-si (WIP de Max) recoupe ces fichiers : les
+  groupes `batleforc-org_*`, `additionalMounts` de forgejo et `vault.tf`.
+  Les groupes sont faits ici. Le reste relève de la phase 5, et un
+  `stash pop` entrera en conflit sur `auth/sub/values.yaml`.
+
