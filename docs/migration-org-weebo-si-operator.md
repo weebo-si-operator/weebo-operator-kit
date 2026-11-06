@@ -2,7 +2,7 @@
 
 | Champ  | Valeur |
 | ------ | ------ |
-| Statut | En cours : les six dépôts sont transférés le 2026-11-06 (§8) |
+| Statut | Faite le 2026-11-06 (§8). Restent les réglages de l'org et le nettoyage (étape 6) |
 | Créée  | 2026-11-06 |
 | Cible  | <https://github.com/weebo-si-operator> (plan free, vide au 2026-11-06) |
 
@@ -232,3 +232,22 @@ restent.
   sous l'org), releases des opérateurs, puis weebo-si (étape 5), et les
   paramètres de l'org qui demandent `admin:org` (`gh auth refresh -s
   admin:org`) ou l'interface : Actions, paquets, Renovate, Pages.
+- Releases : kit v0.28.0 puis v0.28.1 (le `cog.toml` du template nommait
+  encore `batleforc` dans les liens du changelog). Les opérateurs, montés
+  sur le kit v0.28.1 (`task kit:sync`, `weebo-operator-lib` depuis l'org ;
+  authentik et stalwart adaptés au multi-mount du kit v0.27, sans mount
+  additionnel) : weebo-forgejo 0.8.2, weebo-authentik 0.23.4, weebo-angos
+  0.3.5, weebo-batlehub 0.5.3, weebo-stalwart 0.3.3. CRDs régénérées
+  (`task recu` sans écart).
+- Les Publish ont d'abord échoué au scan Grype : CVE-2026-84243, glibc
+  2.43-9.2.hum1 de `hi/core-runtime`, sans correctif, même sur le dernier
+  digest. Exception datée dans le `.grype.yaml` de chaque opérateur,
+  **expire le 2026-12-06** : à retirer, ou à re-justifier, à cette date.
+- weebo-si : `bound_claims` sur le rôle `weebo_admin` (`7b784b7e`), puis
+  bascule des charts vers `ghcr.io/weebo-si-operator/charts` aux versions
+  ci-dessus (`5b42edb8`). Les charts sous `ghcr.io/batleforc/charts` restent,
+  pour le retour arrière.
+- Restent : `gh auth refresh -s admin:org` puis les réglages Actions et
+  paquets de l'org, Renovate sur l'org, et l'étape 6 (restreindre l'identité
+  cosign à l'org quand plus rien ne dépend d'un chart de kit d'avant
+  v0.28.0, ce qui est le cas des cinq opérateurs).
