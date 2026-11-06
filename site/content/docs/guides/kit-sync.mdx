@@ -20,7 +20,7 @@ which rewrites:
 - `Taskfile.yaml`: the tag in each remote `tasks/*.yaml` include URL and
   its `checksum:` (sha256 of the file at that tag), and `KIT_TAG:` for a
   repository without a kit crate;
-- `.github/workflows/*`: every `uses: batleforc/weebo-operator-kit/.github/workflows/…@vX.Y.Z`;
+- `.github/workflows/*`: every `uses: weebo-si-operator/weebo-operator-kit/.github/workflows/…@vX.Y.Z`;
 - `deploy/charts/*/Chart.yaml`: the `weebo-operator-lib` dependency
   version, then `helm dependency update` (`Chart.lock`);
 - `docs/package.json`: the `@weebo/operator-docs` tarball URL, then
@@ -39,7 +39,7 @@ change before it is tagged, render from a sibling checkout instead:
 
 ## After the sync
 
-1. Read the kit's [CHANGELOG](https://github.com/batleforc/weebo-operator-kit/blob/main/CHANGELOG.md)
+1. Read the kit's [CHANGELOG](https://github.com/weebo-si-operator/weebo-operator-kit/blob/main/CHANGELOG.md)
    between the two tags. A minor bump of `0.x` may break: the
    `BREAKING` entries, and the matching section of `docs/plan.md`, say
    what each operator has to change.

@@ -22,7 +22,7 @@ dir="$1"
 tag="$2"
 kit_dir="${3:-}"
 version="${tag#v}"
-repo=batleforc/weebo-operator-kit
+repo=weebo-si-operator/weebo-operator-kit
 raw="https://raw.githubusercontent.com/$repo"
 
 if [ -f "$dir/Cargo.toml" ]; then
@@ -36,9 +36,12 @@ done
 
 for f in "$dir"/deploy/charts/*/Chart.yaml; do
     [ -f "$f" ] || continue
-    awk -v v="$version" '
-        /^ *- name: weebo-operator-lib *$/ { lib = 1 }
-        lib && /^ +version: / { sub(/version: .*/, "version: " v); lib = 0 }
+    # The library chart is published under the org since the move off
+    # ghcr.io/batleforc/charts (which keeps the older versions).
+    awk -v v="$version" -v r="oci://ghcr.io/weebo-si-operator/charts" '
+        /^ *- name: / { lib = ($0 ~ /- name: weebo-operator-lib *$/) }
+        lib && /^ +version: / { sub(/version: .*/, "version: " v) }
+        lib && /^ +repository: / { sub(/repository: .*/, "repository: " r) }
         { print }
     ' "$f" > "$f.tmp"
     mv "$f.tmp" "$f"

@@ -3,11 +3,11 @@ name: Release
 # On a version tag: packs packages/operator-docs and attaches the tarball to
 # the tag's GitHub Release (created when missing). That tarball is how the
 # operators' docs sites consume the package:
-#   "@weebo/operator-docs": "https://github.com/batleforc/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz"
+#   "@weebo/operator-docs": "https://github.com/weebo-si-operator/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz"
 # It also pushes the library chart (charts/weebo-operator-lib) to
-# oci://ghcr.io/batleforc/charts, where the operators' charts depend on it:
+# oci://ghcr.io/weebo-si-operator/charts, where the operators' charts depend on it:
 #   dependencies:
-#     - { name: weebo-operator-lib, version: X.Y.Z, repository: oci://ghcr.io/batleforc/charts }
+#     - { name: weebo-operator-lib, version: X.Y.Z, repository: oci://ghcr.io/weebo-si-operator/charts }
 # keyless-signed with cosign (this workflow's identity), which publish.yml
 # verifies before packaging an operator's chart on it.
 # The crates need nothing here: operators depend on them by git tag, and
@@ -94,7 +94,7 @@ jobs:
           mise exec -- helm lint charts/weebo-operator-lib
           mkdir -p dist
           mise exec -- helm package charts/weebo-operator-lib --destination dist
-          out="$(mise exec -- helm push dist/weebo-operator-lib-*.tgz oci://ghcr.io/batleforc/charts 2>&1)"
+          out="$(mise exec -- helm push dist/weebo-operator-lib-*.tgz oci://ghcr.io/weebo-si-operator/charts 2>&1)"
           echo "$out"
           digest="$(printf '%s\n' "$out" | awk '/^Digest:/ {print $2}')"
           [ -n "$digest" ] || { echo "::error::no digest in helm push output" >&2; exit 1; }
@@ -105,7 +105,7 @@ jobs:
         env:
           TOKEN: ${{ github.token }}
           ACTOR: ${{ github.actor }}
-          REF: ghcr.io/batleforc/charts/weebo-operator-lib@${{ steps.push.outputs.digest }}
+          REF: ghcr.io/weebo-si-operator/charts/weebo-operator-lib@${{ steps.push.outputs.digest }}
         run: |
           echo "$TOKEN" | cosign login ghcr.io -u "$ACTOR" --password-stdin
           cosign sign --yes "$REF"

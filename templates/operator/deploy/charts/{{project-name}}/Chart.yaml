@@ -22,4 +22,4 @@ dependencies:
   # the kit's, as in Cargo.toml (`task kit:sync` keeps them in step).
   - name: weebo-operator-lib
     version: 0.27.0
-    repository: oci://ghcr.io/batleforc/charts
+    repository: oci://ghcr.io/weebo-si-operator/charts

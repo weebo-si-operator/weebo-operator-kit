@@ -5,7 +5,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/batleforc/weebo-operator-kit.git",
+    "url": "git+https://github.com/weebo-si-operator/weebo-operator-kit.git",
     "directory": "packages/operator-docs"
   },
   "type": "module",

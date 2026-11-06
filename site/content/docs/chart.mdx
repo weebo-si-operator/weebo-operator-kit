@@ -5,12 +5,12 @@ description: charts/weebo-operator-lib — every resource of an operator chart b
 
 `charts/weebo-operator-lib` is a Helm **library chart**: every resource
 an operator chart deploys except its CRDs. It is pushed to
-`oci://ghcr.io/batleforc/charts` at every kit release, under the kit's
+`oci://ghcr.io/weebo-si-operator/charts` at every kit release, under the kit's
 version, and cosign-signed (the reusable `publish.yml` verifies that
 signature before packaging an operator chart on it). Nothing in it names
 a product: names come from the operator chart's `Chart.yaml`, what varies
 is a parameter set. Its
-[README](https://github.com/batleforc/weebo-operator-kit/blob/main/charts/weebo-operator-lib/README.md)
+[README](https://github.com/weebo-si-operator/weebo-operator-kit/blob/main/charts/weebo-operator-lib/README.md)
 is the reference.
 
 ## An operator chart on it
@@ -20,7 +20,7 @@ is the reference.
 dependencies:
   - name: weebo-operator-lib
     version: X.Y.Z # the kit's, moved by task kit:sync
-    repository: oci://ghcr.io/batleforc/charts
+    repository: oci://ghcr.io/weebo-si-operator/charts
 ```
 
 The chart's templates shrink to two files:

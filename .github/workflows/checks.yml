@@ -10,7 +10,7 @@ name: Checks
 #   permissions: {}
 #   jobs:
 #     checks:
-#       uses: batleforc/weebo-operator-kit/.github/workflows/checks.yml@vX.Y.Z
+#       uses: weebo-si-operator/weebo-operator-kit/.github/workflows/checks.yml@vX.Y.Z
 #       permissions: { contents: read }
 #       with: { test-task: "test:all", helm-task: "lint:helm" }
 #

@@ -1,7 +1,7 @@
 name: Site
 
 # Builds the kit's documentation site (site/) as a static export and
-# publishes it to GitHub Pages (https://batleforc.github.io/weebo-operator-kit).
+# publishes it to GitHub Pages (https://weebo-si-operator.github.io/weebo-operator-kit).
 # The site installs @weebo/operator-docs from packages/operator-docs, so a
 # change to the package redeploys it too. GitHub-only: the Pages deploy
 # actions have no Forgejo Actions equivalent.

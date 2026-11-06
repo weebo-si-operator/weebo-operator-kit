@@ -28,7 +28,7 @@ The package is released with the kit: every kit tag `vX.Y.Z` carries
 In the operator's `docs/package.json`:
 
 ```json
-"@weebo/operator-docs": "https://github.com/batleforc/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz"
+"@weebo/operator-docs": "https://github.com/weebo-si-operator/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz"
 ```
 
 Its `fumadocs-core`, `fumadocs-ui`, `fumadocs-mdx` and `next` peers are

@@ -5,7 +5,7 @@
 #
 #   includes:
 #     rust:
-#       taskfile: https://raw.githubusercontent.com/batleforc/weebo-operator-kit/vX.Y.Z/tasks/rust.yaml
+#       taskfile: https://raw.githubusercontent.com/weebo-si-operator/weebo-operator-kit/vX.Y.Z/tasks/rust.yaml
 #       checksum: <sha256>
 #       vars: { COVERAGE_IGNORE: '(testkit|/tests/)' }
 #

@@ -4,7 +4,7 @@
 #
 #   includes:
 #     repo:
-#       taskfile: https://raw.githubusercontent.com/batleforc/weebo-operator-kit/vX.Y.Z/tasks/repo.yaml
+#       taskfile: https://raw.githubusercontent.com/weebo-si-operator/weebo-operator-kit/vX.Y.Z/tasks/repo.yaml
 #       checksum: <sha256>
 #       vars: { CONTAINERFILES: "Containerfile Containerfile.hardened", NPM_DIR: docs }
 version: "3"

@@ -2,248 +2,248 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
-## [v0.27.0](https://github.com/batleforc/weebo-operator-kit/compare/fc04ead9e823822ff26f36f18d02c77891cb0ed2..v0.27.0) - 2026-11-06
+## [v0.27.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/fc04ead9e823822ff26f36f18d02c77891cb0ed2..v0.27.0) - 2026-11-06
 #### Features
-- (**vault**) secretTargets on additional KV mounts - ([8d636ed](https://github.com/batleforc/weebo-operator-kit/commit/8d636ed0e441564fe7ac631490872ad52244cec7)) - Max Batleforc, Claude Opus 5.5
+- (**vault**) secretTargets on additional KV mounts - ([8d636ed](https://github.com/weebo-si-operator/weebo-operator-kit/commit/8d636ed0e441564fe7ac631490872ad52244cec7)) - Max Batleforc, Claude Opus 5.5
 #### Bug Fixes
-- (**deps**) async-executor 1.14.1 (1.14.0 yanked, cargo-deny refuses it) - ([fc04ead](https://github.com/batleforc/weebo-operator-kit/commit/fc04ead9e823822ff26f36f18d02c77891cb0ed2)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) async-executor 1.14.1 (1.14.0 yanked, cargo-deny refuses it) - ([fc04ead](https://github.com/weebo-si-operator/weebo-operator-kit/commit/fc04ead9e823822ff26f36f18d02c77891cb0ed2)) - Max Batleforc, Claude Opus 5.5
 #### Documentation
-- RFC for weebo-openbao, declarative OpenBao spaces (draft) - ([e3dda58](https://github.com/batleforc/weebo-operator-kit/commit/e3dda5817a45646fcf89b8486215a403b04cd62c)) - Max Batleforc, Claude Opus 5.5
+- RFC for weebo-openbao, declarative OpenBao spaces (draft) - ([e3dda58](https://github.com/weebo-si-operator/weebo-operator-kit/commit/e3dda5817a45646fcf89b8486215a403b04cd62c)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.26.0](https://github.com/batleforc/weebo-operator-kit/compare/fca6115362bb350b91ff3b361a4d894aa23a6f1b..v0.26.0) - 2026-10-31
+## [v0.26.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/fca6115362bb350b91ff3b361a4d894aa23a6f1b..v0.26.0) - 2026-10-31
 #### Features
-- (**runtime**) spawn_with, a webhook server configured by the caller, and controller::reconciled (#39) - ([fca6115](https://github.com/batleforc/weebo-operator-kit/commit/fca6115362bb350b91ff3b361a4d894aa23a6f1b)) - Maxime, Claude Opus 5.5 (1M context)
+- (**runtime**) spawn_with, a webhook server configured by the caller, and controller::reconciled (#39) - ([fca6115](https://github.com/weebo-si-operator/weebo-operator-kit/commit/fca6115362bb350b91ff3b361a4d894aa23a6f1b)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.25.1](https://github.com/batleforc/weebo-operator-kit/compare/a5f569ece7d6662dc4cc4f469b5943394a961568..v0.25.1) - 2026-10-30
+## [v0.25.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/a5f569ece7d6662dc4cc4f469b5943394a961568..v0.25.1) - 2026-10-30
 #### Bug Fixes
-- (**leader**) bound each lease renewal attempt, retry a stuck one (#38) - ([a02541b](https://github.com/batleforc/weebo-operator-kit/commit/a02541bbcf1ac5d426a0096bc7caa766cbd40155)) - Maxime, Claude Opus 5.5
+- (**leader**) bound each lease renewal attempt, retry a stuck one (#38) - ([a02541b](https://github.com/weebo-si-operator/weebo-operator-kit/commit/a02541bbcf1ac5d426a0096bc7caa766cbd40155)) - Maxime, Claude Opus 5.5
 #### Documentation
-- (**site**) weebo-notify's docs site is published (#37) - ([8afcd83](https://github.com/batleforc/weebo-operator-kit/commit/8afcd83ae5f34a90cf4af8e6b06df67b99ac3737)) - Maxime, Claude Opus 5.5
+- (**site**) weebo-notify's docs site is published (#37) - ([8afcd83](https://github.com/weebo-si-operator/weebo-operator-kit/commit/8afcd83ae5f34a90cf4af8e6b06df67b99ac3737)) - Maxime, Claude Opus 5.5
 #### Miscellaneous Chores
-- (**site**) the CRD catalog on weebo-notify v0.2.0 (NotifyApiKey) (#36) - ([c1417e6](https://github.com/batleforc/weebo-operator-kit/commit/c1417e68e27753ffaeb8df2890c2400cd132ded2)) - Maxime, Claude Opus 5.5
-- (**site**) weebo-notify v0.1.0 in the CRD catalog (#35) - ([a5f569e](https://github.com/batleforc/weebo-operator-kit/commit/a5f569ece7d6662dc4cc4f469b5943394a961568)) - Maxime, Claude Opus 5.5
+- (**site**) the CRD catalog on weebo-notify v0.2.0 (NotifyApiKey) (#36) - ([c1417e6](https://github.com/weebo-si-operator/weebo-operator-kit/commit/c1417e68e27753ffaeb8df2890c2400cd132ded2)) - Maxime, Claude Opus 5.5
+- (**site**) weebo-notify v0.1.0 in the CRD catalog (#35) - ([a5f569e](https://github.com/weebo-si-operator/weebo-operator-kit/commit/a5f569ece7d6662dc4cc4f469b5943394a961568)) - Maxime, Claude Opus 5.5
 
 - - -
 
-## [v0.25.0](https://github.com/batleforc/weebo-operator-kit/compare/228911e515c8511970fa102c6ba96198d19885e6..v0.25.0) - 2026-10-29
+## [v0.25.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/228911e515c8511970fa102c6ba96198d19885e6..v0.25.0) - 2026-10-29
 #### Features
-- close the gaps weebo-notify found (template lints, admission warnings, envtest teardown) (#33) - ([e872d61](https://github.com/batleforc/weebo-operator-kit/commit/e872d619ce55eef1ff087abf16335d2d74594bcf)) - Maxime, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5
+- close the gaps weebo-notify found (template lints, admission warnings, envtest teardown) (#33) - ([e872d61](https://github.com/weebo-si-operator/weebo-operator-kit/commit/e872d619ce55eef1ff087abf16335d2d74594bcf)) - Maxime, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5
 #### Miscellaneous Chores
-- (**site**) the CRD catalog on the operators released on kit v0.24.0, ProxyAuthK8S added (#31) - ([228911e](https://github.com/batleforc/weebo-operator-kit/commit/228911e515c8511970fa102c6ba96198d19885e6)) - Maxime, Claude Opus 5.5 (1M context)
+- (**site**) the CRD catalog on the operators released on kit v0.24.0, ProxyAuthK8S added (#31) - ([228911e](https://github.com/weebo-si-operator/weebo-operator-kit/commit/228911e515c8511970fa102c6ba96198d19885e6)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.24.0](https://github.com/batleforc/weebo-operator-kit/compare/7f2862191f17de91290c4e860748e88af8488c6a..v0.24.0) - 2026-10-22
+## [v0.24.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/7f2862191f17de91290c4e860748e88af8488c6a..v0.24.0) - 2026-10-22
 #### Features
-- (**operator-docs**) schematic kinds, drawn in the CRD IDE and never applied (#30) - ([38d1cc4](https://github.com/batleforc/weebo-operator-kit/commit/38d1cc4ecf5d01f00e0d6152f445fc00ae895aa0)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- (**operator-docs**) schematic kinds, drawn in the CRD IDE and never applied (#30) - ([38d1cc4](https://github.com/weebo-si-operator/weebo-operator-kit/commit/38d1cc4ecf5d01f00e0d6152f445fc00ae895aa0)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
 #### Documentation
-- (**site**) operators page on kit v0.23.1 with each project's release - ([8331f8e](https://github.com/batleforc/weebo-operator-kit/commit/8331f8e4920f3b8bfad4191e98320558a7f575de)) - Max Batleforc, Claude Opus 5.5 (1M context)
+- (**site**) operators page on kit v0.23.1 with each project's release - ([8331f8e](https://github.com/weebo-si-operator/weebo-operator-kit/commit/8331f8e4920f3b8bfad4191e98320558a7f575de)) - Max Batleforc, Claude Opus 5.5 (1M context)
 #### Miscellaneous Chores
-- (**site**) pin the operators released on kit v0.23.1 in the CRD catalog (#29) - ([7f28621](https://github.com/batleforc/weebo-operator-kit/commit/7f2862191f17de91290c4e860748e88af8488c6a)) - Maxime, Claude Opus 5.5 (1M context)
+- (**site**) pin the operators released on kit v0.23.1 in the CRD catalog (#29) - ([7f28621](https://github.com/weebo-si-operator/weebo-operator-kit/commit/7f2862191f17de91290c4e860748e88af8488c6a)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.23.1](https://github.com/batleforc/weebo-operator-kit/compare/d78bfcf2724396db84ec0ea125bcb869eed13869..v0.23.1) - 2026-10-21
+## [v0.23.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/d78bfcf2724396db84ec0ea125bcb869eed13869..v0.23.1) - 2026-10-21
 #### Bug Fixes
-- (**ci**) release and publish jobs authenticate mise (#28) - ([d78bfcf](https://github.com/batleforc/weebo-operator-kit/commit/d78bfcf2724396db84ec0ea125bcb869eed13869)) - Maxime, Claude Opus 5.5 (1M context)
+- (**ci**) release and publish jobs authenticate mise (#28) - ([d78bfcf](https://github.com/weebo-si-operator/weebo-operator-kit/commit/d78bfcf2724396db84ec0ea125bcb869eed13869)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.23.0](https://github.com/batleforc/weebo-operator-kit/compare/090e4c68d6f426802e6a237400dfd617f03fc0d9..v0.23.0) - 2026-10-21
+## [v0.23.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/090e4c68d6f426802e6a237400dfd617f03fc0d9..v0.23.0) - 2026-10-21
 #### Features
-- (**operator-docs**) the CRD IDE, a visual editor of linked manifests (#27) - ([090e4c6](https://github.com/batleforc/weebo-operator-kit/commit/090e4c68d6f426802e6a237400dfd617f03fc0d9)) - Maxime, Claude Opus 5.5 (1M context)
+- (**operator-docs**) the CRD IDE, a visual editor of linked manifests (#27) - ([090e4c6](https://github.com/weebo-si-operator/weebo-operator-kit/commit/090e4c68d6f426802e6a237400dfd617f03fc0d9)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.22.1](https://github.com/batleforc/weebo-operator-kit/compare/e37fb1953052895f5ea9345e4a046435047f7800..v0.22.1) - 2026-10-21
+## [v0.22.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/e37fb1953052895f5ea9345e4a046435047f7800..v0.22.1) - 2026-10-21
 #### Bug Fixes
-- (**runtime**) only retries back off, not watch events (#26) - ([e37fb19](https://github.com/batleforc/weebo-operator-kit/commit/e37fb1953052895f5ea9345e4a046435047f7800)) - Maxime, Claude Opus 5.5 (1M context)
+- (**runtime**) only retries back off, not watch events (#26) - ([e37fb19](https://github.com/weebo-si-operator/weebo-operator-kit/commit/e37fb1953052895f5ea9345e4a046435047f7800)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.22.0](https://github.com/batleforc/weebo-operator-kit/compare/556d423283d52783fe1e481a0c1b34c5d332375f..v0.22.0) - 2026-10-21
+## [v0.22.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/556d423283d52783fe1e481a0c1b34c5d332375f..v0.22.0) - 2026-10-21
 #### Features
-- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**kit**) house lints, retry backoff, typed errors, accessible manifest builder (#25) - ([45604c9](https://github.com/batleforc/weebo-operator-kit/commit/45604c945062774cd973668474ffa980941e7590)) - Maxime, Claude Opus 5.5 (1M context)
-- (**site**) the kit's own documentation site (#23) - ([02a2ad2](https://github.com/batleforc/weebo-operator-kit/commit/02a2ad2571ed4f67b032c8bb31829e0b006deb2a)) - Maxime, Claude Opus 5.5 (1M context)
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**kit**) house lints, retry backoff, typed errors, accessible manifest builder (#25) - ([45604c9](https://github.com/weebo-si-operator/weebo-operator-kit/commit/45604c945062774cd973668474ffa980941e7590)) - Maxime, Claude Opus 5.5 (1M context)
+- (**site**) the kit's own documentation site (#23) - ([02a2ad2](https://github.com/weebo-si-operator/weebo-operator-kit/commit/02a2ad2571ed4f67b032c8bb31829e0b006deb2a)) - Maxime, Claude Opus 5.5 (1M context)
 #### Bug Fixes
-- (**operator-docs**) a long site name no longer overflows the sidebar header (#24) - ([5ef7261](https://github.com/batleforc/weebo-operator-kit/commit/5ef7261965f4b33b97e80e5b656987f4d3a9288c)) - Maxime, Claude Opus 5.5 (1M context)
+- (**operator-docs**) a long site name no longer overflows the sidebar header (#24) - ([5ef7261](https://github.com/weebo-si-operator/weebo-operator-kit/commit/5ef7261965f4b33b97e80e5b656987f4d3a9288c)) - Maxime, Claude Opus 5.5 (1M context)
 #### Documentation
-- (**plan**) a spec cause for remote writes, to do (#22) - ([556d423](https://github.com/batleforc/weebo-operator-kit/commit/556d423283d52783fe1e481a0c1b34c5d332375f)) - Maxime, Claude Opus 5.5 (1M context)
+- (**plan**) a spec cause for remote writes, to do (#22) - ([556d423](https://github.com/weebo-si-operator/weebo-operator-kit/commit/556d423283d52783fe1e481a0c1b34c5d332375f)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.21.0](https://github.com/batleforc/weebo-operator-kit/compare/9b723a33954b1decf516291cd404d16c0727fdb8..v0.21.0) - 2026-10-19
+## [v0.21.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/9b723a33954b1decf516291cd404d16c0727fdb8..v0.21.0) - 2026-10-19
 #### Features
-- (**runtime**) shared watches per label selector, filtered watches_in (#21) - ([83d9f9c](https://github.com/batleforc/weebo-operator-kit/commit/83d9f9c83027333889c4d4ee51a3e8c51d05d191)) - Maxime, Claude Opus 5.5 (1M context)
+- (**runtime**) shared watches per label selector, filtered watches_in (#21) - ([83d9f9c](https://github.com/weebo-si-operator/weebo-operator-kit/commit/83d9f9c83027333889c4d4ee51a3e8c51d05d191)) - Maxime, Claude Opus 5.5 (1M context)
 #### Documentation
-- (**plan**) shared watches adopted, three API gaps to close (#20) - ([ba61265](https://github.com/batleforc/weebo-operator-kit/commit/ba6126513c8b2f81cec4d4c8a169e56414acdce8)) - Maxime, Claude Opus 5.5 (1M context)
-- (**plan**) shared watches still to adopt in the operators (#19) - ([9b723a3](https://github.com/batleforc/weebo-operator-kit/commit/9b723a33954b1decf516291cd404d16c0727fdb8)) - Maxime, Claude Opus 5.5 (1M context)
+- (**plan**) shared watches adopted, three API gaps to close (#20) - ([ba61265](https://github.com/weebo-si-operator/weebo-operator-kit/commit/ba6126513c8b2f81cec4d4c8a169e56414acdce8)) - Maxime, Claude Opus 5.5 (1M context)
+- (**plan**) shared watches still to adopt in the operators (#19) - ([9b723a3](https://github.com/weebo-si-operator/weebo-operator-kit/commit/9b723a33954b1decf516291cd404d16c0727fdb8)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.20.0](https://github.com/batleforc/weebo-operator-kit/compare/9dab634f16ae9e467a9725bb69df4dad5f9a6eea..v0.20.0) - 2026-10-19
+## [v0.20.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/9dab634f16ae9e467a9725bb69df4dad5f9a6eea..v0.20.0) - 2026-10-19
 #### Features
-- (**operator-docs**) reference.group for a component without CRDs; RFC 0004 section gap explained (#15) - ([9dab634](https://github.com/batleforc/weebo-operator-kit/commit/9dab634f16ae9e467a9725bb69df4dad5f9a6eea)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
-- (**runtime**) one shared watch per kind, store waits that wake every reconcile (#17) - ([a554fbb](https://github.com/batleforc/weebo-operator-kit/commit/a554fbb271eb1f9226a22a1172984bb23d5af1f0)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- (**operator-docs**) reference.group for a component without CRDs; RFC 0004 section gap explained (#15) - ([9dab634](https://github.com/weebo-si-operator/weebo-operator-kit/commit/9dab634f16ae9e467a9725bb69df4dad5f9a6eea)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- (**runtime**) one shared watch per kind, store waits that wake every reconcile (#17) - ([a554fbb](https://github.com/weebo-si-operator/weebo-operator-kit/commit/a554fbb271eb1f9226a22a1172984bb23d5af1f0)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
 #### Bug Fixes
-- (**ci**) checks.yml installs its tools with an authenticated mise (#18) - ([ec36645](https://github.com/batleforc/weebo-operator-kit/commit/ec3664538b7c688a20fd038a6cd37e78d3866669)) - Maxime, Claude Opus 5.5 (1M context)
-- (**operator-docs,chart**) remote_writes_total and RepeatedDrift only for operators that count their writes (#16) - ([bf01be4](https://github.com/batleforc/weebo-operator-kit/commit/bf01be4fac26c83253b5b84eb6b77fd46d620309)) - Maxime, Claude Opus 5.5 (1M context)
+- (**ci**) checks.yml installs its tools with an authenticated mise (#18) - ([ec36645](https://github.com/weebo-si-operator/weebo-operator-kit/commit/ec3664538b7c688a20fd038a6cd37e78d3866669)) - Maxime, Claude Opus 5.5 (1M context)
+- (**operator-docs,chart**) remote_writes_total and RepeatedDrift only for operators that count their writes (#16) - ([bf01be4](https://github.com/weebo-si-operator/weebo-operator-kit/commit/bf01be4fac26c83253b5b84eb6b77fd46d620309)) - Maxime, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.19.2](https://github.com/batleforc/weebo-operator-kit/compare/5b29508f4ad8897bd7269534e61efcfce0bc8e88..v0.19.2) - 2026-10-19
+## [v0.19.2](https://github.com/weebo-si-operator/weebo-operator-kit/compare/5b29508f4ad8897bd7269534e61efcfce0bc8e88..v0.19.2) - 2026-10-19
 #### Bug Fixes
-- (**kit-sync**) install the docs dependencies, not only their lockfile (#14) - ([5b29508](https://github.com/batleforc/weebo-operator-kit/commit/5b29508f4ad8897bd7269534e61efcfce0bc8e88)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- (**kit-sync**) install the docs dependencies, not only their lockfile (#14) - ([5b29508](https://github.com/weebo-si-operator/weebo-operator-kit/commit/5b29508f4ad8897bd7269534e61efcfce0bc8e88)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.19.1](https://github.com/batleforc/weebo-operator-kit/compare/bfcd7d442a7e5745c21fc752b3830e7273573a4c..v0.19.1) - 2026-10-19
+## [v0.19.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/bfcd7d442a7e5745c21fc752b3830e7273573a4c..v0.19.1) - 2026-10-19
 #### Bug Fixes
-- let the operator choose the k8s-openapi version (RFC 0005) (#13) - ([bfcd7d4](https://github.com/batleforc/weebo-operator-kit/commit/bfcd7d442a7e5745c21fc752b3830e7273573a4c)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- let the operator choose the k8s-openapi version (RFC 0005) (#13) - ([bfcd7d4](https://github.com/weebo-si-operator/weebo-operator-kit/commit/bfcd7d442a7e5745c21fc752b3830e7273573a4c)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.19.0](https://github.com/batleforc/weebo-operator-kit/compare/596c1db866debe1ac02f6c3c8cad8934f8a0a65a..v0.19.0) - 2026-10-19
+## [v0.19.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/596c1db866debe1ac02f6c3c8cad8934f8a0a65a..v0.19.0) - 2026-10-19
 #### Features
-- (**operator-docs**) nested CRD fields (RFC 0004 phase 2) (#12) - ([596c1db](https://github.com/batleforc/weebo-operator-kit/commit/596c1db866debe1ac02f6c3c8cad8934f8a0a65a)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- (**operator-docs**) nested CRD fields (RFC 0004 phase 2) (#12) - ([596c1db](https://github.com/weebo-si-operator/weebo-operator-kit/commit/596c1db866debe1ac02f6c3c8cad8934f8a0a65a)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.18.2](https://github.com/batleforc/weebo-operator-kit/compare/05a8bd46b8ba9df278388ba19762fe862c62dbb5..v0.18.2) - 2026-10-19
+## [v0.18.2](https://github.com/weebo-si-operator/weebo-operator-kit/compare/05a8bd46b8ba9df278388ba19762fe862c62dbb5..v0.18.2) - 2026-10-19
 #### Features
-- (**runtime**) WEEBO_WORKER_THREADS, 4 tokio workers by default (#11) - ([9a9f585](https://github.com/batleforc/weebo-operator-kit/commit/9a9f585f151eb1233416bc566c241eaa9d5b688d)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- (**runtime**) WEEBO_WORKER_THREADS, 4 tokio workers by default (#11) - ([9a9f585](https://github.com/weebo-si-operator/weebo-operator-kit/commit/9a9f585f151eb1233416bc566c241eaa9d5b688d)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
 #### Documentation
-- (**rfc**) RFC 0004 — review applied (#10) - ([23ae883](https://github.com/batleforc/weebo-operator-kit/commit/23ae883384c5243dd3eb8ad41a931cfc8119ef15)) - Maxime, Claude Opus 5.5 (1M context)
-- (**rfc**) RFC 0001 spike findings and D24, RFC 0002 moved here (#9) - ([05a8bd4](https://github.com/batleforc/weebo-operator-kit/commit/05a8bd46b8ba9df278388ba19762fe862c62dbb5)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- (**rfc**) RFC 0004 — review applied (#10) - ([23ae883](https://github.com/weebo-si-operator/weebo-operator-kit/commit/23ae883384c5243dd3eb8ad41a931cfc8119ef15)) - Maxime, Claude Opus 5.5 (1M context)
+- (**rfc**) RFC 0001 spike findings and D24, RFC 0002 moved here (#9) - ([05a8bd4](https://github.com/weebo-si-operator/weebo-operator-kit/commit/05a8bd46b8ba9df278388ba19762fe862c62dbb5)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.18.1](https://github.com/batleforc/weebo-operator-kit/compare/c744f17e785bdc2186080bf691ec272144c3dba8..v0.18.1) - 2026-10-19
+## [v0.18.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/c744f17e785bdc2186080bf691ec272144c3dba8..v0.18.1) - 2026-10-19
 #### Features
-- Merge branch 'fix/crd-docs-escape' - ([c4fe3b7](https://github.com/batleforc/weebo-operator-kit/commit/c4fe3b7629da28f63129dda133bd48faa68ba0ee)) - Max Batleforc
+- Merge branch 'fix/crd-docs-escape' - ([c4fe3b7](https://github.com/weebo-si-operator/weebo-operator-kit/commit/c4fe3b7629da28f63129dda133bd48faa68ba0ee)) - Max Batleforc
 #### Bug Fixes
-- (**ci**) operator-docs jobs install only node and task, mise authenticated (#8) - ([c744f17](https://github.com/batleforc/weebo-operator-kit/commit/c744f17e785bdc2186080bf691ec272144c3dba8)) - Maxime, Claude Opus 5.5 (1M context)
-- (**operator-docs**) escape CRD text before it reaches MDX - ([f9b0729](https://github.com/batleforc/weebo-operator-kit/commit/f9b0729d02209aa4ebb368ffca9f5a422cd99834)) - Max Batleforc, Claude Opus 5.5 (1M context)
+- (**ci**) operator-docs jobs install only node and task, mise authenticated (#8) - ([c744f17](https://github.com/weebo-si-operator/weebo-operator-kit/commit/c744f17e785bdc2186080bf691ec272144c3dba8)) - Maxime, Claude Opus 5.5 (1M context)
+- (**operator-docs**) escape CRD text before it reaches MDX - ([f9b0729](https://github.com/weebo-si-operator/weebo-operator-kit/commit/f9b0729d02209aa4ebb368ffca9f5a422cd99834)) - Max Batleforc, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.18.0](https://github.com/batleforc/weebo-operator-kit/compare/c335330248add08cfcdd53fdde9e07b46ef90d98..v0.18.0) - 2026-10-18
+## [v0.18.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/c335330248add08cfcdd53fdde9e07b46ef90d98..v0.18.0) - 2026-10-18
 #### Features
-- ![BREAKING](https://img.shields.io/badge/BREAKING-red) write only what differs — drift helpers, remote_writes_total, DriftCorrected; RFC 0001 moved here (#7) - ([08b2208](https://github.com/batleforc/weebo-operator-kit/commit/08b220873c72d01738c12a850564c9966b24f480)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
-- setup wksa - ([3cbf319](https://github.com/batleforc/weebo-operator-kit/commit/3cbf31983b18af00920214651503f61a624d7877)) - Max Batleforc
-- add devfile - ([2e6a942](https://github.com/batleforc/weebo-operator-kit/commit/2e6a942dc2e5ac229141a6dd9122d1aa43fa15cf)) - Max Batleforc
-- ranged docs peers, NPM_CLIENT for kit:sync, KIT_TAG fallback - ([c335330](https://github.com/batleforc/weebo-operator-kit/commit/c335330248add08cfcdd53fdde9e07b46ef90d98)) - Max Batleforc, Claude Opus 5.5 (1M context)
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) write only what differs — drift helpers, remote_writes_total, DriftCorrected; RFC 0001 moved here (#7) - ([08b2208](https://github.com/weebo-si-operator/weebo-operator-kit/commit/08b220873c72d01738c12a850564c9966b24f480)) - Maxime, Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context), Claude Opus 5.5 (1M context)
+- setup wksa - ([3cbf319](https://github.com/weebo-si-operator/weebo-operator-kit/commit/3cbf31983b18af00920214651503f61a624d7877)) - Max Batleforc
+- add devfile - ([2e6a942](https://github.com/weebo-si-operator/weebo-operator-kit/commit/2e6a942dc2e5ac229141a6dd9122d1aa43fa15cf)) - Max Batleforc
+- ranged docs peers, NPM_CLIENT for kit:sync, KIT_TAG fallback - ([c335330](https://github.com/weebo-si-operator/weebo-operator-kit/commit/c335330248add08cfcdd53fdde9e07b46ef90d98)) - Max Batleforc, Claude Opus 5.5 (1M context)
 
 - - -
 
-## [v0.17.0](https://github.com/batleforc/weebo-operator-kit/compare/e23c8051aa947ad572e37e950245ea5c769134d4..v0.17.0) - 2026-10-16
+## [v0.17.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/e23c8051aa947ad572e37e950245ea5c769134d4..v0.17.0) - 2026-10-16
 #### Features
-- managed workload core, LocalInstances and AttachNamespaces (v0.17.0) (#6) - ([e23c805](https://github.com/batleforc/weebo-operator-kit/commit/e23c8051aa947ad572e37e950245ea5c769134d4)) - Maxime, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5
+- managed workload core, LocalInstances and AttachNamespaces (v0.17.0) (#6) - ([e23c805](https://github.com/weebo-si-operator/weebo-operator-kit/commit/e23c8051aa947ad572e37e950245ea5c769134d4)) - Maxime, Claude Opus 5.5, Claude Opus 5.5, Claude Opus 5.5
 
 - - -
 
-## [v0.16.0](https://github.com/batleforc/weebo-operator-kit/compare/17205022d8f40d9e01e5600fb7245419613514cd..v0.16.0) - 2026-10-15
+## [v0.16.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/17205022d8f40d9e01e5600fb7245419613514cd..v0.16.0) - 2026-10-15
 #### Features
-- vault CAS claims, admission parity and shared operator helpers (review 2026-10-15) (#5) - ([1720502](https://github.com/batleforc/weebo-operator-kit/commit/17205022d8f40d9e01e5600fb7245419613514cd)) - Maxime, Claude Opus 5.5
+- vault CAS claims, admission parity and shared operator helpers (review 2026-10-15) (#5) - ([1720502](https://github.com/weebo-si-operator/weebo-operator-kit/commit/17205022d8f40d9e01e5600fb7245419613514cd)) - Maxime, Claude Opus 5.5
 
 - - -
 
-## [v0.15.1](https://github.com/batleforc/weebo-operator-kit/compare/ccab8f9e860d7c956891ea75eeb0eaed452540b0..v0.15.1) - 2026-10-15
+## [v0.15.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/ccab8f9e860d7c956891ea75eeb0eaed452540b0..v0.15.1) - 2026-10-15
 #### Bug Fixes
-- (**publish**) a first prerelease publishes, marked as a prerelease (#4) - ([8d5a343](https://github.com/batleforc/weebo-operator-kit/commit/8d5a343569b08c77bd09f0544830401c595c8fae)) - Maxime, Claude Opus 5.5
+- (**publish**) a first prerelease publishes, marked as a prerelease (#4) - ([8d5a343](https://github.com/weebo-si-operator/weebo-operator-kit/commit/8d5a343569b08c77bd09f0544830401c595c8fae)) - Maxime, Claude Opus 5.5
 #### Miscellaneous Chores
-- (**deps**) rustls 0.23.46 (RUSTSEC-2026-0346..0349) (#3) - ([ccab8f9](https://github.com/batleforc/weebo-operator-kit/commit/ccab8f9e860d7c956891ea75eeb0eaed452540b0)) - Maxime, Claude Opus 5.5
+- (**deps**) rustls 0.23.46 (RUSTSEC-2026-0346..0349) (#3) - ([ccab8f9](https://github.com/weebo-si-operator/weebo-operator-kit/commit/ccab8f9e860d7c956891ea75eeb0eaed452540b0)) - Maxime, Claude Opus 5.5
 
 - - -
 
-## [v0.15.0](https://github.com/batleforc/weebo-operator-kit/compare/fd1fe206f7b6c0fa0dcf3c39d45513ad8e567256..v0.15.0) - 2026-10-14
+## [v0.15.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/fd1fe206f7b6c0fa0dcf3c39d45513ad8e567256..v0.15.0) - 2026-10-14
 #### Features
-- ![BREAKING](https://img.shields.io/badge/BREAKING-red) vault path grants on the cluster instance (#2) - ([fd1fe20](https://github.com/batleforc/weebo-operator-kit/commit/fd1fe206f7b6c0fa0dcf3c39d45513ad8e567256)) - Maxime, Claude Opus 5.5
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) vault path grants on the cluster instance (#2) - ([fd1fe20](https://github.com/weebo-si-operator/weebo-operator-kit/commit/fd1fe206f7b6c0fa0dcf3c39d45513ad8e567256)) - Maxime, Claude Opus 5.5
 
 - - -
 
-## [v0.14.3](https://github.com/batleforc/weebo-operator-kit/compare/2daaade0adbb09f95f3997cccef91737b285523b..v0.14.3) - 2026-10-14
+## [v0.14.3](https://github.com/weebo-si-operator/weebo-operator-kit/compare/2daaade0adbb09f95f3997cccef91737b285523b..v0.14.3) - 2026-10-14
 #### Bug Fixes
-- (**template**) the operator's license is a placeholder (#1) - ([2daaade](https://github.com/batleforc/weebo-operator-kit/commit/2daaade0adbb09f95f3997cccef91737b285523b)) - Maxime, Claude Opus 5.5
+- (**template**) the operator's license is a placeholder (#1) - ([2daaade](https://github.com/weebo-si-operator/weebo-operator-kit/commit/2daaade0adbb09f95f3997cccef91737b285523b)) - Maxime, Claude Opus 5.5
 
 - - -
 
-## [v0.14.2](https://github.com/batleforc/weebo-operator-kit/compare/23c723dc53982954cd2283333a182fe3b6a26ee3..v0.14.2) - 2026-10-13
+## [v0.14.2](https://github.com/weebo-si-operator/weebo-operator-kit/compare/23c723dc53982954cd2283333a182fe3b6a26ee3..v0.14.2) - 2026-10-13
 #### Bug Fixes
-- (**template**) read a local instance's token through the opt-in check - ([23c723d](https://github.com/batleforc/weebo-operator-kit/commit/23c723dc53982954cd2283333a182fe3b6a26ee3)) - Max Batleforc, Claude Opus 5.5
+- (**template**) read a local instance's token through the opt-in check - ([23c723d](https://github.com/weebo-si-operator/weebo-operator-kit/commit/23c723dc53982954cd2283333a182fe3b6a26ee3)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.14.1](https://github.com/batleforc/weebo-operator-kit/compare/11301d55a15f14da6334f7525a41e279de7ff76a..v0.14.1) - 2026-10-13
+## [v0.14.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/11301d55a15f14da6334f7525a41e279de7ff76a..v0.14.1) - 2026-10-13
 #### Bug Fixes
-- (**runtime**) lease takeover measured on the candidate's monotonic clock - ([11301d5](https://github.com/batleforc/weebo-operator-kit/commit/11301d55a15f14da6334f7525a41e279de7ff76a)) - Max Batleforc, Claude Opus 5.5
+- (**runtime**) lease takeover measured on the candidate's monotonic clock - ([11301d5](https://github.com/weebo-si-operator/weebo-operator-kit/commit/11301d55a15f14da6334f7525a41e279de7ff76a)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.14.0](https://github.com/batleforc/weebo-operator-kit/compare/ada19bee672aec918f8770a54dc85ab416c8f9ec..v0.14.0) - 2026-10-13
+## [v0.14.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/ada19bee672aec918f8770a54dc85ab416c8f9ec..v0.14.0) - 2026-10-13
 #### Bug Fixes
-- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**kit**) review fixes of 2026-10-13 in the crates - ([ada19be](https://github.com/batleforc/weebo-operator-kit/commit/ada19bee672aec918f8770a54dc85ab416c8f9ec)) - Max Batleforc, Claude Opus 5.5
-- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**tooling**) review fixes of 2026-10-13 in the chart, CI and template - ([cecf7ca](https://github.com/batleforc/weebo-operator-kit/commit/cecf7ca52eb99264a9f5d47f8932f8944825a486)) - Max Batleforc, Claude Opus 5.5
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**kit**) review fixes of 2026-10-13 in the crates - ([ada19be](https://github.com/weebo-si-operator/weebo-operator-kit/commit/ada19bee672aec918f8770a54dc85ab416c8f9ec)) - Max Batleforc, Claude Opus 5.5
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**tooling**) review fixes of 2026-10-13 in the chart, CI and template - ([cecf7ca](https://github.com/weebo-si-operator/weebo-operator-kit/commit/cecf7ca52eb99264a9f5d47f8932f8944825a486)) - Max Batleforc, Claude Opus 5.5
 #### Documentation
-- plan of the review fixes of 2026-10-13 - ([6a4c75c](https://github.com/batleforc/weebo-operator-kit/commit/6a4c75cd3961e0ac2e46db13147159303754aaf0)) - Max Batleforc, Claude Opus 5.5
+- plan of the review fixes of 2026-10-13 - ([6a4c75c](https://github.com/weebo-si-operator/weebo-operator-kit/commit/6a4c75cd3961e0ac2e46db13147159303754aaf0)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.13.0](https://github.com/batleforc/weebo-operator-kit/compare/a06a448d7dc570ba1a965729a74d20cd33146ff2..v0.13.0) - 2026-10-13
+## [v0.13.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/a06a448d7dc570ba1a965729a74d20cd33146ff2..v0.13.0) - 2026-10-13
 #### Features
-- (**publish**) amd64 by default, optional native arm64 images - ([a06a448](https://github.com/batleforc/weebo-operator-kit/commit/a06a448d7dc570ba1a965729a74d20cd33146ff2)) - Max Batleforc, Claude Opus 5.5
+- (**publish**) amd64 by default, optional native arm64 images - ([a06a448](https://github.com/weebo-si-operator/weebo-operator-kit/commit/a06a448d7dc570ba1a965729a74d20cd33146ff2)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.12.1](https://github.com/batleforc/weebo-operator-kit/compare/ac0864eca55442b97c47634b7a6a316f6cf6cf71..v0.12.1) - 2026-10-13
+## [v0.12.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/ac0864eca55442b97c47634b7a6a316f6cf6cf71..v0.12.1) - 2026-10-13
 #### Bug Fixes
-- (**publish**) smoke-run each platform by its own manifest digest - ([ac0864e](https://github.com/batleforc/weebo-operator-kit/commit/ac0864eca55442b97c47634b7a6a316f6cf6cf71)) - Max Batleforc, Claude Opus 5.5
+- (**publish**) smoke-run each platform by its own manifest digest - ([ac0864e](https://github.com/weebo-si-operator/weebo-operator-kit/commit/ac0864eca55442b97c47634b7a6a316f6cf6cf71)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.12.0](https://github.com/batleforc/weebo-operator-kit/compare/882550805fe82b12b313c1def1a8e9c8795f8a68..v0.12.0) - 2026-10-13
+## [v0.12.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/882550805fe82b12b313c1def1a8e9c8795f8a68..v0.12.0) - 2026-10-13
 #### Features
-- (**template**) Hummingbird main image, static sibling, accepted Grype findings - ([8825508](https://github.com/batleforc/weebo-operator-kit/commit/882550805fe82b12b313c1def1a8e9c8795f8a68)) - Max Batleforc, Claude Opus 5.5
+- (**template**) Hummingbird main image, static sibling, accepted Grype findings - ([8825508](https://github.com/weebo-si-operator/weebo-operator-kit/commit/882550805fe82b12b313c1def1a8e9c8795f8a68)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.11.0](https://github.com/batleforc/weebo-operator-kit/compare/682334ff81c4394c2545966fa08fd2b3430be99a..v0.11.0) - 2026-10-13
+## [v0.11.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/682334ff81c4394c2545966fa08fd2b3430be99a..v0.11.0) - 2026-10-13
 #### Features
-- reusable publish workflow, Debian 13 and Hummingbird images - ([682334f](https://github.com/batleforc/weebo-operator-kit/commit/682334ff81c4394c2545966fa08fd2b3430be99a)) - Max Batleforc, Claude Opus 5.5
+- reusable publish workflow, Debian 13 and Hummingbird images - ([682334f](https://github.com/weebo-si-operator/weebo-operator-kit/commit/682334ff81c4394c2545966fa08fd2b3430be99a)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.10.1](https://github.com/batleforc/weebo-operator-kit/compare/247fa04c35c26b9841574c180f97978fbce9d3f5..v0.10.1) - 2026-10-12
+## [v0.10.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/247fa04c35c26b9841574c180f97978fbce9d3f5..v0.10.1) - 2026-10-12
 #### Bug Fixes
-- (**template**) kit:sync and kit:cog honour TAG - ([247fa04](https://github.com/batleforc/weebo-operator-kit/commit/247fa04c35c26b9841574c180f97978fbce9d3f5)) - Max Batleforc, Claude Opus 5.5
+- (**template**) kit:sync and kit:cog honour TAG - ([247fa04](https://github.com/weebo-si-operator/weebo-operator-kit/commit/247fa04c35c26b9841574c180f97978fbce9d3f5)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.10.0](https://github.com/batleforc/weebo-operator-kit/compare/82d8f66d0a2264320eaa9110cf21f788adb22e9a..v0.10.0) - 2026-10-12
+## [v0.10.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/82d8f66d0a2264320eaa9110cf21f788adb22e9a..v0.10.0) - 2026-10-12
 #### Features
-- ![BREAKING](https://img.shields.io/badge/BREAKING-red) watch scope, local instances and full namespaced mode - ([82d8f66](https://github.com/batleforc/weebo-operator-kit/commit/82d8f66d0a2264320eaa9110cf21f788adb22e9a)) - Max Batleforc, Claude Opus 5.5
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) watch scope, local instances and full namespaced mode - ([82d8f66](https://github.com/weebo-si-operator/weebo-operator-kit/commit/82d8f66d0a2264320eaa9110cf21f788adb22e9a)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.9.0](https://github.com/batleforc/weebo-operator-kit/compare/9718abdf885f89e4742a3f324ae281139eee0ba5..v0.9.0) - 2026-10-11
+## [v0.9.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/9718abdf885f89e4742a3f324ae281139eee0ba5..v0.9.0) - 2026-10-11
 #### Features
-- library chart, shared tasks, reusable CI and operator template - ([9718abd](https://github.com/batleforc/weebo-operator-kit/commit/9718abdf885f89e4742a3f324ae281139eee0ba5)) - Max Batleforc
+- library chart, shared tasks, reusable CI and operator template - ([9718abd](https://github.com/weebo-si-operator/weebo-operator-kit/commit/9718abdf885f89e4742a3f324ae281139eee0ba5)) - Max Batleforc
 
 - - -
 
-## [v0.8.0](https://github.com/batleforc/weebo-operator-kit/compare/003f8b64886bb4c85a15608e43b9e5c83219bbaa..v0.8.0) - 2026-10-11
+## [v0.8.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/003f8b64886bb4c85a15608e43b9e5c83219bbaa..v0.8.0) - 2026-10-11
 #### Features
-- (**perf**) measure the resource budget every week - ([003f8b6](https://github.com/batleforc/weebo-operator-kit/commit/003f8b64886bb4c85a15608e43b9e5c83219bbaa)) - Max Batleforc, Claude Opus 5.5
+- (**perf**) measure the resource budget every week - ([003f8b6](https://github.com/weebo-si-operator/weebo-operator-kit/commit/003f8b64886bb4c85a15608e43b9e5c83219bbaa)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 
-## [v0.7.0](https://github.com/batleforc/weebo-operator-kit/compare/55d2fd8516efdca1f084464fdd0d0267a258a78c..v0.7.0) - 2026-10-11
+## [v0.7.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/55d2fd8516efdca1f084464fdd0d0267a258a78c..v0.7.0) - 2026-10-11
 #### Features
-- shared docs-site package and cog.toml template for the operators - ([55d2fd8](https://github.com/batleforc/weebo-operator-kit/commit/55d2fd8516efdca1f084464fdd0d0267a258a78c)) - Max Batleforc, Claude Opus 5.5
+- shared docs-site package and cog.toml template for the operators - ([55d2fd8](https://github.com/weebo-si-operator/weebo-operator-kit/commit/55d2fd8516efdca1f084464fdd0d0267a258a78c)) - Max Batleforc, Claude Opus 5.5
 
 - - -
 

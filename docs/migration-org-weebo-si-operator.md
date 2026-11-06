@@ -96,21 +96,28 @@ par les redirections, et les anciens paquets GHCR restent en place.
    `task test:all` vert, dont `template:check` (le template rendu doit
    pointer sur la nouvelle org).
 4. **Pour chaque opérateur**, dans l'ordre forgejo, authentik, angos,
-   batlehub, stalwart (forgejo d'abord : il est déjà sur v0.27.0) :
+   batlehub, stalwart. **Sans monter de version de kit** : les tags suivent
+   le dépôt transféré, et `publish.yml` du kit a les entrées `image` et
+   `chart-repo` depuis v0.24.0 au moins.
    1. transférer le dépôt ;
-   2. monter le kit à la release de l'étape 3, ce qui réécrit d'un coup :
-      `Cargo.toml` (`git = "https://github.com/weebo-si-operator/weebo-operator-kit"`),
-      `Cargo.lock` (la source change), `Taskfile.yaml` (URLs raw et leurs
-      sha256), `uses: weebo-si-operator/weebo-operator-kit/.github/workflows/*.yml@vX`,
-      `deploy/charts/*/Chart.yaml` (`repository: oci://ghcr.io/weebo-si-operator/charts`,
-      puis `Chart.lock`) ;
-   3. `publish.yml` : `image: ghcr.io/weebo-si-operator/<op>-operator`,
-      `chart_repo` par défaut ;
-   4. README, `site/`, docs, CRD `x-weebo` éventuels, liens entre opérateurs
-      (`github.com/batleforc/weebo-<autre>` → nouvelle org, sauf
-      ProxyAuthK8S et weebo-si-hardening) ;
-   5. release de l'opérateur : la première image et le premier chart sous
-      `ghcr.io/weebo-si-operator/…`, signés avec la nouvelle identité.
+   2. réécrire ses références (§5, `MIGRATED=1`) : son propre dépôt, son
+      image, son site, et le kit **au même tag** (`Cargo.toml`, URLs raw du
+      Taskfile, dont le sha256 ne change pas, `uses: …@vX`, `KIT_REPO`),
+      puis `cargo update --workspace --offline` ou un `cargo check` pour
+      réécrire la source dans `Cargo.lock` ;
+   3. **garder** `repository: oci://ghcr.io/batleforc/charts` sur la
+      dépendance `weebo-operator-lib` du Chart.yaml : les versions de ce
+      chart antérieures à la release de l'étape 3 n'existent que là, signées
+      par l'ancienne identité, ce que le `publish.yml` épinglé vérifie ;
+   4. `publish.yml` de l'opérateur : `image: ghcr.io/weebo-si-operator/<op>-operator`
+      et `chart-repo: ghcr.io/weebo-si-operator/charts` passés explicitement
+      (le défaut des anciens tags du kit vise `batleforc`, où un dépôt de
+      l'org ne peut pas pousser) ;
+   5. CI verte, puis release de l'opérateur : la première image et le premier
+      chart sous `ghcr.io/weebo-si-operator/…`.
+   La montée de kit (vers la release de l'étape 3 ou suivante) reste un
+   travail à part, au rythme habituel : c'est elle qui bascule la dépendance
+   `weebo-operator-lib` vers la nouvelle org.
 5. **weebo-si**, opérateur par opérateur, après sa release de l'étape 4 :
    chart OCI et image dans les values ArgoCD, `renovate.json5` (les règles
    qui matchent `ghcr.io/batleforc/charts/…`, Renovate ne suit pas un
@@ -160,6 +167,9 @@ weebo-si et WeeboDevImage, qui restent.
 
 - dans weebo-si, un `ghcr.io/batleforc/charts` sans nom de chart (la
   substitution ne le touche pas sans `MIGRATED=1`) ;
+- dans un opérateur, `MIGRATED=1` réécrit aussi la dépendance
+  `weebo-operator-lib` du Chart.yaml : la remettre sur `batleforc` tant que
+  l'opérateur n'a pas monté son kit (§4.4.3) ;
 - la regexp cosign de §4.3, qui doit garder les deux propriétaires un temps ;
 - les sha256 des includes Taskfile : l'URL change, le contenu non, mais la
   nouvelle version de kit change le contenu ;

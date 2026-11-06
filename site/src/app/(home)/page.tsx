@@ -64,7 +64,7 @@ export default function HomePage() {
             <h2 className="sheet-label">1 · Start an operator</h2>
             <pre className="sheet-pre">
               <code>{`cargo generate \\
-  --git https://github.com/batleforc/weebo-operator-kit \\
+  --git https://github.com/weebo-si-operator/weebo-operator-kit \\
   --tag ${version} templates/operator`}</code>
             </pre>
           </div>

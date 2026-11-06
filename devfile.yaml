@@ -12,20 +12,20 @@ projects:
   - name: weebo-operator-kit
     git:
       remotes:
-        origin: https://github.com/batleforc/weebo-operator-kit.git
+        origin: https://github.com/weebo-si-operator/weebo-operator-kit.git
   - name: weebo-authentik
     git:
       remotes:
-        origin: https://github.com/batleforc/weebo-authentik.git
+        origin: https://github.com/weebo-si-operator/weebo-authentik.git
   - name: weebo-forgejo
     git:
       remotes:
-        origin: https://github.com/batleforc/weebo-forgejo.git
+        origin: https://github.com/weebo-si-operator/weebo-forgejo.git
   - name: weebo-batlehub
     git:
       remotes:
-        origin: https://github.com/batleforc/weebo-batlehub.git
+        origin: https://github.com/weebo-si-operator/weebo-batlehub.git
   - name: weebo-angos
     git:
       remotes:
-        origin: https://github.com/batleforc/weebo-angos.git
+        origin: https://github.com/weebo-si-operator/weebo-angos.git

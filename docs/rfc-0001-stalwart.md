@@ -12,7 +12,7 @@
   local, constats reportés), non décidée.
 - **Release visée :** weebo-stalwart v0.1.0 (comptes d'envoi), v0.2.0
   (boîtes, groupes, listes). Aucun changement du kit n'est requis.
-- **Brique :** `weebo-si:2.argo/helm/mail`, github.com/batleforc/weebo-stalwart
+- **Brique :** `weebo-si:2.argo/helm/mail`, github.com/weebo-si-operator/weebo-stalwart
 - **Ligne de left-todo :** « Setup Stalwart as an internal mail system for the cluster… »
 
 ## Résumé
@@ -225,7 +225,7 @@ un `Delete` explicite.
 
 Règle de cette RFC : **rien n'est réinventé à côté du kit**. Le dépôt est
 généré par
-`cargo generate --git https://github.com/batleforc/weebo-operator-kit --tag v0.18.x templates/operator`
+`cargo generate --git https://github.com/weebo-si-operator/weebo-operator-kit --tag v0.18.x templates/operator`
 (`product = Stalwart`, d'où le groupe `stalwart.weebo.io`). La v0.18 est
 visée, et pas la v0.17 : c'est elle qui apporte le modèle « lire, comparer,
 n'écrire que la dérive » de la RFC 0003 (`weebo-kit-domain::drift`,
@@ -263,7 +263,7 @@ factory, `crates/importer` pour `weebo-stalwart-importer`.
 | Jamais d'adoption par nom : un nom pris échoue (`…AlreadyExists`) ; reprise uniquement par l'importer (`import-pending`) après la garde de revendication unique (`RemoteObjectClaimed`) | Repris de forgejo : `StalwartObjectAlreadyExists`, `RemoteObjectClaimed`, `weebo-stalwart-importer`. Le template, lui, lit et adopte par nom (`gateway.read(&desired.name)`) : on s'en écarte (D9). |
 | Finalizer, `deletionPolicy: Delete \| Orphan` | Sur tous les kinds distants, `Orphan` seul pour `StalwartDomain` (D18). Le verrouillage est un **état** (`spec.state`), pas une politique de suppression. |
 | Runtime : leader election (Lease), `WatchScope`, health, OTLP, `ReconcileMetrics`, `Admission` + `check_vault_targets` + `ScopeGuard` | Utilisés sans surcouche. |
-| Chart `weebo-operator-lib`, `tasks/*.yaml`, `checks.yml` / `publish.yml`, `cog.toml` du kit, `@weebo/operator-docs`, `weebo-kit-perf` | Le dépôt les consomme par tag, comme forgejo. Chart publié en `oci://ghcr.io/batleforc/charts/weebo-stalwart`. |
+| Chart `weebo-operator-lib`, `tasks/*.yaml`, `checks.yml` / `publish.yml`, `cog.toml` du kit, `@weebo/operator-docs`, `weebo-kit-perf` | Le dépôt les consomme par tag, comme forgejo. Chart publié en `oci://ghcr.io/weebo-si-operator/charts/weebo-stalwart`. |
 
 Deux sujets touchent la frontière avec le kit, sans le modifier :
 
@@ -1229,7 +1229,7 @@ avec la liste de 258 permissions (*Sécurité*).
       `mv/mail/auth`)
 - [ ] `weebo-si:2.argo/app` : `templates/mail.yaml` (Application `mail`),
       entrée `mail` des values ; AppProject `dev-base` : repo
-      `oci://ghcr.io/batleforc/charts/weebo-stalwart`, destinations `mail`
+      `oci://ghcr.io/weebo-si-operator/charts/weebo-stalwart`, destinations `mail`
       et `weebo-stalwart`, CRD et webhook de weebo-stalwart dans
       `clusterResourceWhitelist`, comme weebo-forgejo
 - [ ] `weebo-si:2.argo/helm/mail` : SecretStore, ExternalSecrets

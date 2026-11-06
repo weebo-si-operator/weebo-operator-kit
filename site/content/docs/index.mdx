@@ -21,7 +21,7 @@ workflows, a `cargo-generate` template of a new operator, and
 site is built on it).
 
 The authoritative design document is
-[`docs/plan.md`](https://github.com/batleforc/weebo-operator-kit/blob/main/docs/plan.md)
+[`docs/plan.md`](https://github.com/weebo-si-operator/weebo-operator-kit/blob/main/docs/plan.md)
 (in French). This site summarizes it and points at the code.
 
 ## What goes in the kit
@@ -83,12 +83,12 @@ Cases settled by the plan:
 
 | What | How it is pinned |
 | ---- | ---------------- |
-| Crates `weebo-kit-*` | git dependency on a tag in `[workspace.dependencies]`: `{ git = "https://github.com/batleforc/weebo-operator-kit", tag = "vX.Y.Z" }`; the operator's `deny.toml` allows that git source |
-| Library chart `weebo-operator-lib` | Helm dependency on `oci://ghcr.io/batleforc/charts`, version `X.Y.Z` (pushed and cosign-signed by `release.yml`) |
+| Crates `weebo-kit-*` | git dependency on a tag in `[workspace.dependencies]`: `{ git = "https://github.com/weebo-si-operator/weebo-operator-kit", tag = "vX.Y.Z" }`; the operator's `deny.toml` allows that git source |
+| Library chart `weebo-operator-lib` | Helm dependency on `oci://ghcr.io/weebo-si-operator/charts`, version `X.Y.Z` (pushed and cosign-signed by `release.yml`) |
 | `tasks/rust.yaml`, `tasks/helm.yaml`, `tasks/repo.yaml` | remote Taskfile includes from `raw.githubusercontent.com/…/vX.Y.Z/tasks/…`, pinned by `checksum:` (sha256, verified by Task) |
-| `checks.yml`, `publish.yml`, `perf.yml` | reusable workflows: `uses: batleforc/weebo-operator-kit/.github/workflows/checks.yml@vX.Y.Z` |
-| `@weebo/operator-docs` | the release tarball in the site's `package.json`: `https://github.com/batleforc/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz` |
-| `templates/operator` | `cargo generate --git https://github.com/batleforc/weebo-operator-kit --tag vX.Y.Z templates/operator`, once, to start |
+| `checks.yml`, `publish.yml`, `perf.yml` | reusable workflows: `uses: weebo-si-operator/weebo-operator-kit/.github/workflows/checks.yml@vX.Y.Z` |
+| `@weebo/operator-docs` | the release tarball in the site's `package.json`: `https://github.com/weebo-si-operator/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz` |
+| `templates/operator` | `cargo generate --git https://github.com/weebo-si-operator/weebo-operator-kit --tag vX.Y.Z templates/operator`, once, to start |
 | `templates/cog.toml`, `templates/kit.yaml` | copied into the operator (`.tasks/kit.yaml`, included as `kit:`); `task kit:cog` renders `cog.toml` |
 
 All of these move together with one command,

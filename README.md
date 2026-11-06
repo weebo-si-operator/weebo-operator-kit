@@ -5,8 +5,8 @@ The pipe dream of this project is to easen the creation of kubernetes operators 
 In addition, i will use them in my project [Weebo-SI](https://github.com/batleforc/weebo-si) and in a futur project :eyes:.
 
 Shared core of the weebo Kubernetes operators
-([weebo-forgejo](https://github.com/batleforc/weebo-forgejo),
-[weebo-authentik](https://github.com/batleforc/weebo-authentik), and the
+([weebo-forgejo](https://github.com/weebo-si-operator/weebo-forgejo),
+[weebo-authentik](https://github.com/weebo-si-operator/weebo-authentik), and the
 next ones): the plumbing every operator needs around its own business
 logic, in the same hexagonal layout the operators use.
 
@@ -30,7 +30,7 @@ And what the operators kept copying around the code:
 
 | Path                                                       | What it gives an operator                                                                  |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| [`charts/weebo-operator-lib`](charts/weebo-operator-lib/README.md) | Library chart (`oci://ghcr.io/batleforc/charts`): every chart resource but the CRDs, from one parameter set |
+| [`charts/weebo-operator-lib`](charts/weebo-operator-lib/README.md) | Library chart (`oci://ghcr.io/weebo-si-operator/charts`): every chart resource but the CRDs, from one parameter set |
 | `tasks/{rust,helm,repo}.yaml`                              | Shared Taskfiles, included remotely and pinned by checksum: lint, audit, coverage, doctor, chart lint/CRDs |
 | `.github/workflows/checks.yml`                             | Reusable CI: lint, test, audit, chart lint (`perf.yml`: the weekly resource budget)        |
 | `templates/operator`                                       | `cargo-generate` template of a new operator, wired on all of the above                     |
@@ -39,7 +39,7 @@ And what the operators kept copying around the code:
 Design, scope rules, versioning and the migration roadmap:
 [`docs/plan.md`](docs/plan.md).
 
-**Documentation site: <https://batleforc.github.io/weebo-operator-kit/>**
+**Documentation site: <https://weebo-si-operator.github.io/weebo-operator-kit/>**
 — how the kit works (crates, library chart, tooling, guides) and which
 operators use it. Its sources are in [`site/`](site/), built on
 `@weebo/operator-docs` from this tree (`file:../packages/operator-docs`),
@@ -51,8 +51,8 @@ every push to `main` touching `site/` or `packages/operator-docs/`.
 ```toml
 # operator's Cargo.toml
 [workspace.dependencies]
-weebo-kit-domain = { git = "https://github.com/batleforc/weebo-operator-kit", tag = "v0.1.0" }
-weebo-kit-runtime = { git = "https://github.com/batleforc/weebo-operator-kit", tag = "v0.1.0" }
+weebo-kit-domain = { git = "https://github.com/weebo-si-operator/weebo-operator-kit", tag = "v0.1.0" }
+weebo-kit-runtime = { git = "https://github.com/weebo-si-operator/weebo-operator-kit", tag = "v0.1.0" }
 # …one line per crate used
 ```
 
@@ -75,12 +75,12 @@ checked in CI (`k8s-versions` job). RFC 0005 (`docs/rfc-0005-k8s-openapi-version
 A new operator starts from the template:
 
 ```bash
-cargo generate --git https://github.com/batleforc/weebo-operator-kit --tag vX.Y.Z templates/operator
+cargo generate --git https://github.com/weebo-si-operator/weebo-operator-kit --tag vX.Y.Z templates/operator
 ```
 
 ```json
 // operator's docs/package.json: the tarball attached to the kit's release
-"@weebo/operator-docs": "https://github.com/batleforc/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz"
+"@weebo/operator-docs": "https://github.com/weebo-si-operator/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz"
 ```
 
 ## Development

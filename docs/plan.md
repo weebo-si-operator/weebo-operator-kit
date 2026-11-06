@@ -82,7 +82,7 @@ Cas particuliers tranchés :
 - SemVer sur le workspace entier (une version, un tag `vX.Y.Z`, via
   cocogitto). Tant que `0.x` : un bump mineur peut casser l'API.
 - Les opérateurs dépendent du kit par
-  `{ git = "https://github.com/batleforc/weebo-operator-kit", tag = "vX.Y.Z" }`
+  `{ git = "https://github.com/weebo-si-operator/weebo-operator-kit", tag = "vX.Y.Z" }`
   dans leurs `[workspace.dependencies]`. Leur `deny.toml` doit alors
   autoriser cette source (`[sources] allow-git = [...]`).
 - En développement local, un `path = "../weebo-operator-kit/crates/…"`
@@ -496,7 +496,7 @@ le squelette d'un nouvel opérateur. Même règle que pour les crates : rien
 ne nomme un produit, ce qui varie est un paramètre.
 
 - **Library chart** `charts/weebo-operator-lib` (`type: library`, version
-  = celle du workspace, poussée sur `oci://ghcr.io/batleforc/charts` par
+  = celle du workspace, poussée sur `oci://ghcr.io/weebo-si-operator/charts` par
   `release.yml`). Toutes les ressources d'un chart d'opérateur sauf les
   CRD : Deployment, ServiceAccount, ClusterRole(+Binding), Role du Lease,
   Role d'exemple namespacé, Service et `ValidatingWebhookConfiguration`
@@ -533,7 +533,7 @@ ne nomme un produit, ce qui varie est un paramètre.
   régénérés) restent dans le workflow de l'opérateur. Le CI du kit
   l'appelle sur lui-même.
 - **Gabarit `cargo-generate`** `templates/operator` :
-  `cargo generate --git https://github.com/batleforc/weebo-operator-kit --tag vX.Y.Z templates/operator`
+  `cargo generate --git https://github.com/weebo-si-operator/weebo-operator-kit --tag vX.Y.Z templates/operator`
   (placeholders `product`, en CamelCase, et `license`, `Apache-2.0` par défaut). Workspace hexagonal câblé sur
   le kit (domain, api, application, adapters-outbound, adapters-inbound,
   operator, crdgen, testkit), CRD `<Product>Instance` (URL + token) et

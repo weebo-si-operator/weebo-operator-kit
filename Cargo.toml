@@ -15,7 +15,7 @@ version = "0.27.0"
 edition = "2024"
 license = "MIT"
 publish = false
-repository = "https://github.com/batleforc/weebo-operator-kit"
+repository = "https://github.com/weebo-si-operator/weebo-operator-kit"
 
 [workspace.dependencies]
 weebo-kit-domain = { path = "crates/weebo-kit-domain" }

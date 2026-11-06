@@ -7,7 +7,7 @@ description: '@weebo/operator-docs: the operators'' documentation-site format, i
 the operators' documentation sites — Fumadocs on Next.js, exported as a
 static site to GitHub Pages. Each site keeps its content and its own
 diagrams; the rest comes from the package. Its
-[README](https://github.com/batleforc/weebo-operator-kit/blob/main/packages/operator-docs/README.md)
+[README](https://github.com/weebo-si-operator/weebo-operator-kit/blob/main/packages/operator-docs/README.md)
 is the full reference.
 
 | Entry point | What it gives a site |
@@ -25,7 +25,7 @@ Every kit tag attaches `weebo-operator-docs-X.Y.Z.tgz` to its GitHub
 release; a site depends on it by URL, and `task kit:sync` moves that URL:
 
 ```json
-"@weebo/operator-docs": "https://github.com/batleforc/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz"
+"@weebo/operator-docs": "https://github.com/weebo-si-operator/weebo-operator-kit/releases/download/vX.Y.Z/weebo-operator-docs-X.Y.Z.tgz"
 ```
 
 Its `fumadocs-*`/`next` peers are caret ranges: a site takes a security

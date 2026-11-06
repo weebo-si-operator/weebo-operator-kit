@@ -4,7 +4,7 @@
 #
 #   includes:
 #     helm:
-#       taskfile: https://raw.githubusercontent.com/batleforc/weebo-operator-kit/vX.Y.Z/tasks/helm.yaml
+#       taskfile: https://raw.githubusercontent.com/weebo-si-operator/weebo-operator-kit/vX.Y.Z/tasks/helm.yaml
 #       checksum: <sha256>
 #       vars: { CHART: deploy/charts/weebo-example }
 #

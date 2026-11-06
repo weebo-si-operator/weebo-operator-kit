@@ -9,7 +9,7 @@ name: Resource budget
 #     workflow_dispatch:
 #   jobs:
 #     perf:
-#       uses: batleforc/weebo-operator-kit/.github/workflows/perf.yml@vX.Y.Z
+#       uses: weebo-si-operator/weebo-operator-kit/.github/workflows/perf.yml@vX.Y.Z
 #       permissions: { contents: write, pull-requests: write }
 #
 # The new report goes to `<docs>/perf/<label>.json`, the docs are

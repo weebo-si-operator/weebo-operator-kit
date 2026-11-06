@@ -31,7 +31,7 @@ name: Publish
 #   permissions: {}
 #   jobs:
 #     publish:
-#       uses: batleforc/weebo-operator-kit/.github/workflows/publish.yml@vX.Y.Z
+#       uses: weebo-si-operator/weebo-operator-kit/.github/workflows/publish.yml@vX.Y.Z
 #       permissions: { contents: write, packages: write, id-token: write }
 #       with:
 #         tag: ${{ github.ref_name }}
@@ -70,7 +70,7 @@ on:
       chart-repo:
         description: "OCI repository of the chart"
         type: string
-        default: ghcr.io/batleforc/charts
+        default: ghcr.io/weebo-si-operator/charts
       variants:
         description: "JSON list of image variants: file (Containerfile), suffix (tag suffix, \"\" for the main one), required (a failure stops the release)"
         type: string
@@ -546,7 +546,7 @@ jobs:
                 echo "cosign verify $ref"
                 cosign verify "$ref" \
                   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-                  --certificate-identity-regexp '^https://github\.com/batleforc/weebo-operator-kit/\.github/workflows/release\.yml@refs/tags/v' \
+                  --certificate-identity-regexp '^https://github\.com/(batleforc|weebo-si-operator)/weebo-operator-kit/\.github/workflows/release\.yml@refs/tags/v' \
                   > /dev/null
               done
       - name: Package and push the chart

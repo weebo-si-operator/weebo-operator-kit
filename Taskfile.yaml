@@ -131,9 +131,9 @@ tasks:
         rmdir "$tmp"
         # The tag the template pins is the next release, not yet
         # published: the working tree stands in for it.
-        sed -i -E 's|^(weebo-kit-[a-z]+)( = \{ )git = "https://github.com/batleforc/weebo-operator-kit", tag = "[^"]*"|\1\2path = "{{.ROOT_DIR}}/crates/\1"|' "$out/Cargo.toml"
+        sed -i -E 's|^(weebo-kit-[a-z]+)( = \{ )git = "https://github.com/weebo-si-operator/weebo-operator-kit", tag = "[^"]*"|\1\2path = "{{.ROOT_DIR}}/crates/\1"|' "$out/Cargo.toml"
         if grep -q 'tag = "' "$out/Cargo.toml"; then echo "a kit dependency of the template is not in the expected form" >&2; exit 1; fi
-        sed -i 's|repository: oci://ghcr.io/batleforc/charts|repository: file://{{.ROOT_DIR}}/charts/weebo-operator-lib|' "$out"/deploy/charts/*/Chart.yaml
+        sed -i 's|repository: oci://ghcr.io/weebo-si-operator/charts|repository: file://{{.ROOT_DIR}}/charts/weebo-operator-lib|' "$out"/deploy/charts/*/Chart.yaml
 
   template:check:
     desc: "Render the operator template, then build, lint and test it (envtest included) and check its committed CRDs and chart are what it generates"

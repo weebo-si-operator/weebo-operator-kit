@@ -5,7 +5,7 @@ deploys except its CRDs — Deployment, ServiceAccount and RBAC, leader
 election Role, admission webhook (Service, cert-manager Issuer and
 Certificate, `ValidatingWebhookConfiguration`), PodDisruptionBudget,
 metrics Service, ServiceMonitor, PrometheusRule, NetworkPolicy, and the
-Argo CD health check. Published to `oci://ghcr.io/batleforc/charts` at
+Argo CD health check. Published to `oci://ghcr.io/weebo-si-operator/charts` at
 every kit release, under the kit's version.
 
 Nothing here names a product: names come from the operator chart's own
@@ -18,7 +18,7 @@ Nothing here names a product: names come from the operator chart's own
 dependencies:
   - name: weebo-operator-lib
     version: X.Y.Z # the kit's, as in Cargo.toml (task kit:sync)
-    repository: oci://ghcr.io/batleforc/charts
+    repository: oci://ghcr.io/weebo-si-operator/charts
 ```
 
 ```yaml
