@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.28.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/5e6ec49e2861f811f03e351c60dc9465867c4732..v0.28.1) - 2026-11-06
+#### Bug Fixes
+- changelog links name the weebo-si-operator org - ([5e6ec49](https://github.com/weebo-si-operator/weebo-operator-kit/commit/5e6ec49e2861f811f03e351c60dc9465867c4732)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.28.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/f9dd08dfd26f95a1bbb85bc7e4e300b1eb5c1e51..v0.28.0) - 2026-11-06
 #### Features
 - move to the weebo-si-operator GitHub org - ([4482ed8](https://github.com/batleforc/weebo-operator-kit/commit/4482ed895d1bccb3334443aff1e53cc80455e846)) - Max Batleforc, Claude Opus 5.5
