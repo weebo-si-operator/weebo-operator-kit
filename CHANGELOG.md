@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.29.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/73b3d6688f8acf96c3f1ca66d4709f7466626224..v0.29.0) - 2026-11-06
+#### Features
+- ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**vault**) Vault namespaces and per-mount logins for additional mounts - ([f011aef](https://github.com/weebo-si-operator/weebo-operator-kit/commit/f011aef232b94403ee6527f6d9fe96514b3a7524)) - Max Batleforc, Claude Opus 5.5
+#### Documentation
+- (**rfc-0007**) settle questions 15 to 21 - ([5826cb3](https://github.com/weebo-si-operator/weebo-operator-kit/commit/5826cb33f103db8fabe2a816a5b552824f004462)) - Max Batleforc, Claude Opus 5.5
+- migration journal, releases and the weebo-si switch - ([73b3d66](https://github.com/weebo-si-operator/weebo-operator-kit/commit/73b3d6688f8acf96c3f1ca66d4709f7466626224)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.28.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/5e6ec49e2861f811f03e351c60dc9465867c4732..v0.28.1) - 2026-11-06
 #### Bug Fixes
 - changelog links name the weebo-si-operator org - ([5e6ec49](https://github.com/weebo-si-operator/weebo-operator-kit/commit/5e6ec49e2861f811f03e351c60dc9465867c4732)) - Max Batleforc, Claude Opus 5.5
