@@ -49,9 +49,11 @@ clusterRules: []               # extra ClusterRole rules
 watchRules: []                 # extra rules of the watch Role (watch.namespace):
                                # the namespaced resources the operator reads or
                                # writes in the watched namespace
-clusterSecrets: true           # false: with watch.namespace, no Secret access
-                               # beyond that namespace (no cluster-scoped kind
-                               # reads or writes Secrets); default true
+clusterSecrets: true           # false: no Secret in the ClusterRole (with
+                               # watch.namespace, Secrets stay granted in that
+                               # namespace); default true
+releaseSecrets: []             # Secrets of the release namespace the operator
+                               # only reads: get by resourceNames
 alerts: []                     # extra PrometheusRule rules, after the kit's
 {{- end -}}
 ```
