@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.30.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/bfbcbf13609fdcfe81fbfedb13dbec9b6655216a..v0.30.1) - 2026-11-06
+#### Bug Fixes
+- (**template**) image and links under weebo-si-operator, no stale CRD - ([bfbcbf1](https://github.com/weebo-si-operator/weebo-operator-kit/commit/bfbcbf13609fdcfe81fbfedb13dbec9b6655216a)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.30.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/7961c51833bf2b96ae76ef4d338c87172eae84a9..v0.30.0) - 2026-11-06
 #### Features
 - (**chart**) clusterSecrets false without watch.namespace, releaseSecrets - ([7961c51](https://github.com/weebo-si-operator/weebo-operator-kit/commit/7961c51833bf2b96ae76ef4d338c87172eae84a9)) - Max Batleforc, Claude Opus 5.5
