@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.27.0](https://github.com/batleforc/weebo-operator-kit/compare/fc04ead9e823822ff26f36f18d02c77891cb0ed2..v0.27.0) - 2026-11-06
+#### Features
+- (**vault**) secretTargets on additional KV mounts - ([8d636ed](https://github.com/batleforc/weebo-operator-kit/commit/8d636ed0e441564fe7ac631490872ad52244cec7)) - Max Batleforc, Claude Opus 5.5
+#### Bug Fixes
+- (**deps**) async-executor 1.14.1 (1.14.0 yanked, cargo-deny refuses it) - ([fc04ead](https://github.com/batleforc/weebo-operator-kit/commit/fc04ead9e823822ff26f36f18d02c77891cb0ed2)) - Max Batleforc, Claude Opus 5.5
+#### Documentation
+- RFC for weebo-openbao, declarative OpenBao spaces (draft) - ([e3dda58](https://github.com/batleforc/weebo-operator-kit/commit/e3dda5817a45646fcf89b8486215a403b04cd62c)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.26.0](https://github.com/batleforc/weebo-operator-kit/compare/fca6115362bb350b91ff3b361a4d894aa23a6f1b..v0.26.0) - 2026-10-31
 #### Features
 - (**runtime**) spawn_with, a webhook server configured by the caller, and controller::reconciled (#39) - ([fca6115](https://github.com/batleforc/weebo-operator-kit/commit/fca6115362bb350b91ff3b361a4d894aa23a6f1b)) - Maxime, Claude Opus 5.5 (1M context)
