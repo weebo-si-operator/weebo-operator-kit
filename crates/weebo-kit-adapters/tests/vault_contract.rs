@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use serde_json::json;
 use weebo_kit_adapters::{CasWrite, PathMetadata, VaultConfig, VaultSecretStore};
-use weebo_kit_api::VaultPathGrant;
+use weebo_kit_api::{VaultAdditionalMount, VaultPathGrant};
 use wiremock::matchers::{body_partial_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -20,6 +20,7 @@ fn spec(server: &MockServer) -> VaultConfig {
         mount: "secret".into(),
         path_prefix: "weebo-example".into(),
         path_grants: vec![],
+        additional_mounts: vec![],
         kubernetes_auth_role: "weebo-example".into(),
         kubernetes_auth_mount: "kubernetes".into(),
         ca_source: None,
@@ -265,6 +266,40 @@ async fn invalid_grants_fail_before_any_login() {
         .err()
         .expect("a whole-mount grant must be refused");
     assert!(err.0.contains("pathGrants[0]"), "{}", err.0);
+    assert_eq!(logins(&server).await, 0);
+}
+
+#[tokio::test]
+async fn invalid_additional_mounts_fail_before_any_login() {
+    let server = MockServer::start().await;
+    let grant = |paths: &[&str]| VaultPathGrant {
+        namespaces: vec!["auth".into()],
+        cluster_scoped: false,
+        paths: paths.iter().map(|p| p.to_string()).collect(),
+    };
+    let base = spec(&server);
+    for (mount, paths, refused) in [
+        (base.mount.clone(), vec!["+/token"], "other than"),
+        (String::new(), vec!["+/token"], "other than"),
+        (
+            "users".to_string(),
+            vec!["+/*"],
+            "additionalMounts[0].pathGrants[0]",
+        ),
+    ] {
+        let config = VaultConfig {
+            additional_mounts: vec![VaultAdditionalMount {
+                mount,
+                path_grants: vec![grant(&paths)],
+            }],
+            ..spec(&server)
+        };
+        let err = VaultSecretStore::new(&config, "sa-jwt", None)
+            .await
+            .err()
+            .expect("refused");
+        assert!(err.0.contains(refused), "{}", err.0);
+    }
     assert_eq!(logins(&server).await, 0);
 }
 

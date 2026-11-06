@@ -42,6 +42,13 @@ pub struct SecretTarget {
     /// `pathGrants` open it to this object.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
+    /// Vault only: a KV v2 mount other than the instance's own, one the
+    /// instance lists in `additionalMounts`. Needs `path`, which only that
+    /// mount's `pathGrants` can open: an additional mount has no
+    /// per-namespace subtree. Unset (or the instance's mount): the
+    /// instance's mount.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mount: Option<String>,
 }
 
 /// A path pattern: segments separated by `/`, each a literal, `+` (any one
@@ -55,6 +62,22 @@ pub const PATH_PATTERN: &str = r"^(?:(?:[^/*+]+|\+)/)*(?:[^/*+]+|\+|\*)$";
 const MAX_PATHS: u32 = 64;
 const MAX_PATH_LENGTH: u32 = 512;
 const MAX_NAMESPACES: u32 = 64;
+
+/// A KV v2 mount besides the instance's own that objects may write to,
+/// only at the paths its grants open: nothing in it is any namespace's by
+/// default. The Vault policy of the operator's role stays the hard bound.
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultAdditionalMount {
+    /// The KV v2 mount, as targets name it in their `mount`.
+    #[schemars(length(min = 1, max = 128))]
+    pub mount: String,
+    /// The paths of this mount objects may write to.
+    // 8, not 32 like `pathGrants`: nested under a list of mounts, 32 puts
+    // the paths' CEL rules over the apiserver's cost budget.
+    #[schemars(length(min = 1, max = 8))]
+    pub path_grants: Vec<VaultPathGrant>,
+}
 
 /// Paths of the instance's secret backend that objects may write to
 /// outside their namespace's subtree `<pathPrefix>/<namespace>/`. Opens

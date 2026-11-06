@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use weebo_kit_api::SecretTarget;
+use weebo_kit_api::{SecretStoreBackend, SecretTarget};
 
 use crate::ports::{SecretOwner, SecretStore, SecretStoreError};
 
@@ -24,6 +24,7 @@ pub fn targets(
         name: cr_name.to_string(),
         namespace: None,
         path: None,
+        mount: None,
     }]
 }
 
@@ -44,12 +45,31 @@ pub enum TargetViolation {
     /// A cluster-scoped CR's target without a namespace.
     #[error("secret target {name:?} needs a namespace on a cluster-scoped CR")]
     MissingNamespace { name: String },
+    /// `mount` on a target that writes a Kubernetes Secret.
+    #[error("secret target {name:?} names a Vault mount but writes a Kubernetes Secret")]
+    MountWithoutVault { name: String },
+    /// `mount` without `path`: an additional mount has no default path.
+    #[error("secret target {name:?} names Vault mount {mount:?}, which needs an explicit path")]
+    MountWithoutPath { name: String, mount: String },
 }
 
 /// The namespace rules of a target, checked before anything is written
 /// (and again by the stores): a namespaced CR's targets stay in its own
 /// namespace, a cluster-scoped CR's name one.
 pub fn check_target(target: &SecretTarget, owner: &SecretOwner<'_>) -> Result<(), TargetViolation> {
+    if let Some(mount) = &target.mount {
+        if target.backend != SecretStoreBackend::Vault {
+            return Err(TargetViolation::MountWithoutVault {
+                name: target.name.clone(),
+            });
+        }
+        if target.path.is_none() {
+            return Err(TargetViolation::MountWithoutPath {
+                name: target.name.clone(),
+                mount: mount.clone(),
+            });
+        }
+    }
     match (owner.namespace, target.namespace.as_deref()) {
         (Some(own), Some(other)) if own != other => Err(TargetViolation::CrossNamespace {
             name: target.name.clone(),
@@ -124,6 +144,7 @@ mod tests {
             name: name.into(),
             namespace: None,
             path: None,
+            mount: None,
         }
     }
 
@@ -215,5 +236,22 @@ mod tests {
         assert!(!rotation_requested(&None, &n("1")));
         assert!(rotation_requested(&n("2"), &n("1")));
         assert!(!rotation_requested(&n("1"), &n("1")));
+    }
+
+    #[test]
+    fn a_mount_needs_a_vault_target_with_a_path() {
+        let mut t = target("ci");
+        t.mount = Some("users".into());
+        assert!(matches!(
+            check_target(&t, &OWNER),
+            Err(TargetViolation::MountWithoutVault { .. })
+        ));
+        t.backend = SecretStoreBackend::Vault;
+        assert!(matches!(
+            check_target(&t, &OWNER),
+            Err(TargetViolation::MountWithoutPath { .. })
+        ));
+        t.path = Some("max/forgejo-token".into());
+        assert_eq!(check_target(&t, &OWNER), Ok(()));
     }
 }

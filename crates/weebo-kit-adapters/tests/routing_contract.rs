@@ -15,7 +15,7 @@ use serde_json::json;
 use weebo_kit_adapters::{
     K8sSecretStore, RoutingSecretStore, VaultConfig, VaultResolver, VaultSecretStore,
 };
-use weebo_kit_api::{SecretStoreBackend, SecretTarget, VaultPathGrant};
+use weebo_kit_api::{SecretStoreBackend, SecretTarget, VaultAdditionalMount, VaultPathGrant};
 use weebo_kit_application::ports::{SecretOwner, SecretStore};
 use wiremock::matchers::{body_partial_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -36,6 +36,15 @@ async fn vault_with(
     path_prefix: &str,
     path_grants: Vec<VaultPathGrant>,
 ) -> Arc<VaultSecretStore> {
+    vault_with_mounts(server, path_prefix, path_grants, vec![]).await
+}
+
+async fn vault_with_mounts(
+    server: &MockServer,
+    path_prefix: &str,
+    path_grants: Vec<VaultPathGrant>,
+    additional_mounts: Vec<VaultAdditionalMount>,
+) -> Arc<VaultSecretStore> {
     Mock::given(method("POST"))
         .and(path("/v1/auth/kubernetes/login"))
         .respond_with(ResponseTemplate::new(200).set_body_json(envelope(
@@ -53,6 +62,7 @@ async fn vault_with(
         mount: "secret".into(),
         path_prefix: path_prefix.into(),
         path_grants,
+        additional_mounts,
         kubernetes_auth_role: "weebo-example".into(),
         kubernetes_auth_mount: "kubernetes".into(),
         ca_source: None,
@@ -87,6 +97,7 @@ fn vault_target(name: &str, path: Option<&str>) -> SecretTarget {
         name: name.into(),
         namespace: None,
         path: path.map(String::from),
+        mount: None,
     }
 }
 
@@ -247,6 +258,7 @@ async fn vault_is_resolved_once_and_only_when_a_target_needs_it() {
         name: "ci".into(),
         namespace: None,
         path: None,
+        mount: None,
     };
     assert!(!store.exists(&kubernetes_target, &OWNER).await.unwrap());
     assert_eq!(resolved.load(Ordering::SeqCst), 0);
@@ -291,31 +303,36 @@ async fn kv_calls(server: &MockServer) -> usize {
 /// (recorded once), then `owner`'s at version 0; no value; the value
 /// written once, created with check-and-set 0.
 async fn free(server: &MockServer, p: &str, owner: &str) {
+    free_on(server, "secret", p, owner).await
+}
+
+/// [`free`] on KV `mount`.
+async fn free_on(server: &MockServer, mount: &str, p: &str, owner: &str) {
     Mock::given(method("GET"))
-        .and(path(format!("/v1/secret/metadata/{p}")))
+        .and(path(format!("/v1/{mount}/metadata/{p}")))
         .respond_with(ResponseTemplate::new(404).set_body_json(json!({"errors": []})))
         .up_to_n_times(1)
         .mount(server)
         .await;
     Mock::given(method("GET"))
-        .and(path(format!("/v1/secret/metadata/{p}")))
+        .and(path(format!("/v1/{mount}/metadata/{p}")))
         .respond_with(metadata(Some(owner), 0))
         .mount(server)
         .await;
     Mock::given(method("GET"))
-        .and(path(format!("/v1/secret/data/{p}")))
+        .and(path(format!("/v1/{mount}/data/{p}")))
         .respond_with(ResponseTemplate::new(404).set_body_json(json!({"errors": []})))
         .mount(server)
         .await;
     Mock::given(method("POST"))
-        .and(path(format!("/v1/secret/data/{p}")))
+        .and(path(format!("/v1/{mount}/data/{p}")))
         .and(body_partial_json(json!({"options": {"cas": 0}})))
         .respond_with(written(1))
         .expect(1)
         .mount(server)
         .await;
     Mock::given(method("POST"))
-        .and(path(format!("/v1/secret/metadata/{p}")))
+        .and(path(format!("/v1/{mount}/metadata/{p}")))
         .and(body_partial_json(
             json!({"custom_metadata": {"owner": owner}}),
         ))
@@ -819,4 +836,55 @@ async fn without_metadata_rights_an_unchanged_value_writes_nothing() {
     // Neither a new version nor the owner recorded again.
     assert_eq!(calls(&server, "POST", "data").await, 0);
     assert_eq!(calls(&server, "POST", "metadata").await, 0);
+}
+
+#[tokio::test]
+async fn an_additional_mount_takes_only_the_paths_its_grants_open() {
+    let server = MockServer::start().await;
+    free_on(&server, "users", "max/forgejo-token", "Token/team-a/ci").await;
+    let vault = vault_with_mounts(
+        &server,
+        "weebo-example",
+        vec![],
+        vec![VaultAdditionalMount {
+            mount: "users".into(),
+            path_grants: vec![grant(&["team-*"], &["+/forgejo-token"])],
+        }],
+    )
+    .await;
+    let store = RoutingSecretStore::new(kubernetes(&server), Ok(vault), SecretStoreBackend::Vault);
+    let data = BTreeMap::from([("k".to_string(), "v".to_string())]);
+    let on = |mount: &str, p: &str| SecretTarget {
+        mount: Some(mount.into()),
+        ..vault_target("ci", Some(p))
+    };
+    store
+        .write(&on("users", "max/forgejo-token"), &OWNER, &data)
+        .await
+        .unwrap();
+    assert_eq!(
+        kv_calls(&server).await,
+        0,
+        "nothing on the instance's mount"
+    );
+    // No namespace subtree on an additional mount.
+    let err = store
+        .write(&on("users", "weebo-example/team-a/ci"), &OWNER, &data)
+        .await
+        .unwrap_err();
+    assert!(err.0.contains("on mount \"users\""), "{}", err.0);
+    let err = store
+        .write(&on("orgs-prod", "max/forgejo-token"), &OWNER, &data)
+        .await
+        .unwrap_err();
+    assert!(
+        err.0.contains("not one of the instance's additionalMounts"),
+        "{}",
+        err.0
+    );
+    // The instance's own mount by name: its usual rules.
+    store
+        .write(&on("secret", "shared/x"), &OWNER, &data)
+        .await
+        .expect_err("outside the subtree, no grant");
 }

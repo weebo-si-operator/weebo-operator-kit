@@ -44,6 +44,17 @@ pub enum PathDenied {
         subtree: Option<String>,
         namespace: Option<String>,
     },
+    /// A mount the instance doesn't list among its additional mounts.
+    UnknownMount {
+        mount: String,
+    },
+    /// On an additional mount, which has no subtree: no grant of that
+    /// mount covers the path for this writer.
+    NotGrantedOnMount {
+        path: String,
+        mount: String,
+        namespace: Option<String>,
+    },
 }
 
 impl fmt::Display for PathDenied {
@@ -70,6 +81,24 @@ impl fmt::Display for PathDenied {
                     ),
                 }
             }
+            PathDenied::UnknownMount { mount } => write!(
+                f,
+                "Vault mount {mount:?} is not one of the instance's additionalMounts"
+            ),
+            PathDenied::NotGrantedOnMount {
+                path,
+                mount,
+                namespace,
+            } => match namespace {
+                Some(ns) => write!(
+                    f,
+                    "Vault path {path:?} on mount {mount:?}: no pathGrants entry of that mount allows it for namespace {ns:?}"
+                ),
+                None => write!(
+                    f,
+                    "Vault path {path:?} on mount {mount:?}: no pathGrants entry of that mount allows it for cluster-scoped objects"
+                ),
+            },
         }
     }
 }
@@ -244,6 +273,34 @@ pub fn check<'p>(
     })
 }
 
+/// [`check`] on one of the instance's additional mounts (`grants`: that
+/// mount's, `None` when the instance doesn't list `mount`). Such a mount
+/// has no subtree: only its grants open a path.
+pub fn check_on_mount<'p>(
+    mount: &str,
+    grants: Option<&[PathGrant<'_>]>,
+    writer: Writer<'_>,
+    path: &'p str,
+) -> Result<&'p str, PathDenied> {
+    let Some(grants) = grants else {
+        return Err(PathDenied::UnknownMount {
+            mount: mount.to_string(),
+        });
+    };
+    let normalized = normalize(path)?;
+    if granted(grants, writer, normalized) {
+        return Ok(normalized);
+    }
+    Err(PathDenied::NotGrantedOnMount {
+        path: path.to_string(),
+        mount: mount.to_string(),
+        namespace: match writer {
+            Writer::Namespaced(ns) => Some(ns.to_string()),
+            Writer::Cluster => None,
+        },
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,5 +466,51 @@ mod tests {
             "Vault path \"x/y\" names no namespace and no pathGrants entry of the instance \
              allows it for cluster-scoped objects"
         );
+    }
+
+    #[test]
+    fn an_additional_mount_opens_only_its_grants() {
+        let ns = s(&["weebo-forgejo"]);
+        let paths = s(&["+/forgejo-token"]);
+        let grants = [PathGrant {
+            namespaces: &ns,
+            cluster_scoped: false,
+            paths: &paths,
+        }];
+        let writer = Writer::Namespaced("weebo-forgejo");
+        assert_eq!(
+            check_on_mount("users", Some(&grants), writer, "/max/forgejo-token"),
+            Ok("max/forgejo-token")
+        );
+        // No subtree: the writer's own namespace folder is not implied.
+        for refused in ["weebo-forgejo/x", "max/notes", "max/a/forgejo-token"] {
+            let denied = check_on_mount("users", Some(&grants), writer, refused).unwrap_err();
+            assert!(
+                matches!(denied, PathDenied::NotGrantedOnMount { .. }),
+                "{refused}"
+            );
+        }
+        let other = check_on_mount(
+            "users",
+            Some(&grants),
+            Writer::Namespaced("ci"),
+            "max/forgejo-token",
+        );
+        assert!(
+            other
+                .unwrap_err()
+                .to_string()
+                .contains("for namespace \"ci\"")
+        );
+        assert_eq!(
+            check_on_mount("orgs-prod", None, writer, "a/b"),
+            Err(PathDenied::UnknownMount {
+                mount: "orgs-prod".into()
+            })
+        );
+        assert!(matches!(
+            check_on_mount("users", Some(&grants), writer, "max/../x"),
+            Err(PathDenied::Malformed { .. })
+        ));
     }
 }

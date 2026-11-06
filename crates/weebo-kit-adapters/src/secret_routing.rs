@@ -12,7 +12,7 @@ use weebo_kit_application::ports::{SecretOwner, SecretStore, SecretStoreError};
 use weebo_kit_domain::vault_paths::Writer;
 
 use crate::secret_k8s::K8sSecretStore;
-use crate::secret_vault::{CasWrite, PathMetadata, VaultSecretStore};
+use crate::secret_vault::{CasWrite, KvMount, PathMetadata, VaultSecretStore};
 
 type VaultResult = Result<Arc<VaultSecretStore>, String>;
 
@@ -81,22 +81,34 @@ impl RoutingSecretStore {
     /// `<pathPrefix>/<namespace>/` (the owner's namespace, or the one a
     /// cluster-scoped owner's target names) unless the instance's grants
     /// open it to the owner.
-    fn vault_path(
-        vault: &VaultSecretStore,
-        target: &SecretTarget,
+    ///
+    /// A target naming one of the instance's additional mounts gets that
+    /// mount and only that mount's grants: no namespace subtree there.
+    fn vault_path<'v>(
+        vault: &'v VaultSecretStore,
+        target: &'v SecretTarget,
         owner: &SecretOwner<'_>,
-    ) -> Result<String, SecretStoreError> {
+    ) -> Result<(KvMount<'v>, String), SecretStoreError> {
         check_target(target, owner).map_err(|e| SecretStoreError(e.to_string()))?;
         let ns = target.namespace.as_deref().or(owner.namespace);
-        if let Some(path) = &target.path {
-            let writer = match owner.namespace {
-                Some(ns) => Writer::Namespaced(ns),
-                None => Writer::Cluster,
-            };
-            return vault
-                .check_path(writer, ns, path)
-                .map(String::from)
-                .map_err(|e| SecretStoreError(format!("target {:?}: {e}", target.name)));
+        let writer = match owner.namespace {
+            Some(ns) => Writer::Namespaced(ns),
+            None => Writer::Cluster,
+        };
+        let denied = |e| SecretStoreError(format!("target {:?}: {e}", target.name));
+        match (target.mount.as_deref(), target.path.as_deref()) {
+            (Some(mount), Some(path)) if mount != vault.mount() => {
+                let path = vault
+                    .check_mount_path(writer, mount, path)
+                    .map_err(denied)?;
+                return Ok((vault.on_mount(mount), path.to_string()));
+            }
+            (_, Some(path)) => {
+                let path = vault.check_path(writer, ns, path).map_err(denied)?;
+                return Ok((vault.on_mount(vault.mount()), path.to_string()));
+            }
+            // A mount without a path: refused by check_target above.
+            (_, None) => {}
         }
         let ns = ns.ok_or_else(|| {
             SecretStoreError(format!(
@@ -104,14 +116,17 @@ impl RoutingSecretStore {
                 target.name
             ))
         })?;
-        Ok(vault.default_path(ns, &target.name))
+        Ok((
+            vault.on_mount(vault.mount()),
+            vault.default_path(ns, &target.name),
+        ))
     }
 
     /// `Ok(true)` when `path` is free or `owner`'s — under its id or the
     /// one it had before (values written before owners were recorded count
     /// as the writer's).
     async fn vault_owned(
-        vault: &VaultSecretStore,
+        vault: KvMount<'_>,
         path: &str,
         owner: &SecretOwner<'_>,
     ) -> Result<Result<(), String>, SecretStoreError> {
@@ -144,7 +159,7 @@ impl RoutingSecretStore {
     /// Without `read` on `<mount>/metadata/*` ownership isn't checked: the
     /// value is written as is, the owner recorded best effort.
     async fn vault_write(
-        vault: &VaultSecretStore,
+        vault: KvMount<'_>,
         path: &str,
         owner: &SecretOwner<'_>,
         data: &BTreeMap<String, String>,
@@ -227,8 +242,8 @@ impl SecretStore for RoutingSecretStore {
             SecretStoreBackend::Kubernetes => self.kubernetes.write(target, owner, data).await,
             SecretStoreBackend::Vault => {
                 let vault = self.vault().await?;
-                let path = Self::vault_path(vault, target, owner)?;
-                Self::vault_write(vault, &path, owner, data).await
+                let (kv, path) = Self::vault_path(vault, target, owner)?;
+                Self::vault_write(kv, &path, owner, data).await
             }
         }
     }
@@ -242,9 +257,9 @@ impl SecretStore for RoutingSecretStore {
             SecretStoreBackend::Kubernetes => self.kubernetes.exists(target, owner).await,
             SecretStoreBackend::Vault => {
                 let vault = self.vault().await?;
-                let path = Self::vault_path(vault, target, owner)?;
-                Ok(vault.read_path(&path).await?.is_some()
-                    && Self::vault_owned(vault, &path, owner).await?.is_ok())
+                let (kv, path) = Self::vault_path(vault, target, owner)?;
+                Ok(kv.read_path(&path).await?.is_some()
+                    && Self::vault_owned(kv, &path, owner).await?.is_ok())
             }
         }
     }
@@ -258,12 +273,12 @@ impl SecretStore for RoutingSecretStore {
             SecretStoreBackend::Kubernetes => self.kubernetes.delete(target, owner).await,
             SecretStoreBackend::Vault => {
                 let vault = self.vault().await?;
-                let path = Self::vault_path(vault, target, owner)?;
-                if let Err(other) = Self::vault_owned(vault, &path, owner).await? {
+                let (kv, path) = Self::vault_path(vault, target, owner)?;
+                if let Err(other) = Self::vault_owned(kv, &path, owner).await? {
                     tracing::info!(%path, owner = %other, "leaving a Vault value this CR does not own");
                     return Ok(());
                 }
-                vault.delete_path(&path).await
+                kv.delete_path(&path).await
             }
         }
     }

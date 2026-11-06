@@ -16,7 +16,7 @@ use vaultrs::api::kv2::requests::{SetSecretMetadataRequest, SetSecretRequestOpti
 use vaultrs::client::{Client as _, VaultClient, VaultClientSettingsBuilder};
 use vaultrs::error::ClientError;
 use vaultrs::{auth::kubernetes, kv2, token};
-use weebo_kit_api::{SecretKeyRef, VaultPathGrant};
+use weebo_kit_api::{SecretKeyRef, VaultAdditionalMount, VaultPathGrant};
 use weebo_kit_application::ports::SecretStoreError;
 use weebo_kit_domain::vault_paths::{self, PathGrant};
 
@@ -42,6 +42,8 @@ pub struct VaultConfig {
     pub path_prefix: String,
     /// The paths open to objects outside their namespace's subtree.
     pub path_grants: Vec<VaultPathGrant>,
+    /// Other KV v2 mounts targets may name, each with its own grants.
+    pub additional_mounts: Vec<VaultAdditionalMount>,
     pub kubernetes_auth_role: String,
     pub kubernetes_auth_mount: String,
     /// Identifies the CA bundle (e.g. `namespace/name/key` of its `Secret`
@@ -74,6 +76,7 @@ pub struct VaultSecretStore {
     mount: String,
     path_prefix: String,
     path_grants: Vec<VaultPathGrant>,
+    additional_mounts: Vec<VaultAdditionalMount>,
     kubernetes_auth_mount: String,
     kubernetes_auth_role: String,
     jwt: String,
@@ -95,6 +98,17 @@ impl VaultSecretStore {
     ) -> Result<Self, SecretStoreError> {
         vault_paths::validate(&path_grants(&spec.path_grants))
             .map_err(|e| SecretStoreError(format!("Vault connection: {e}")))?;
+        for (i, extra) in spec.additional_mounts.iter().enumerate() {
+            if extra.mount.is_empty() || extra.mount == spec.mount {
+                return Err(SecretStoreError(format!(
+                    "Vault connection: additionalMounts[{i}] must name a mount other than {:?}",
+                    spec.mount
+                )));
+            }
+            vault_paths::validate(&path_grants(&extra.path_grants)).map_err(|e| {
+                SecretStoreError(format!("Vault connection: additionalMounts[{i}].{e}"))
+            })?;
+        }
         let mut builder = VaultClientSettingsBuilder::default();
         builder.address(&spec.address);
         // vaultrs has no default timeout: a black-holed Vault would hang
@@ -136,6 +150,7 @@ impl VaultSecretStore {
             mount: spec.mount.clone(),
             path_prefix: spec.path_prefix.clone(),
             path_grants: spec.path_grants.clone(),
+            additional_mounts: spec.additional_mounts.clone(),
             kubernetes_auth_mount: spec.kubernetes_auth_mount.clone(),
             kubernetes_auth_role: spec.kubernetes_auth_role.clone(),
             jwt: jwt.trim().to_string(),
@@ -243,6 +258,103 @@ impl VaultSecretStore {
         vault_paths::subtree(&self.path_prefix, namespace)
     }
 
+    /// The instance's own mount.
+    pub fn mount(&self) -> &str {
+        &self.mount
+    }
+
+    /// The KV operations on `mount`: the instance's own or one of its
+    /// additional mounts, under the same login.
+    pub fn on_mount<'a>(&'a self, mount: &'a str) -> KvMount<'a> {
+        KvMount { store: self, mount }
+    }
+
+    fn own(&self) -> KvMount<'_> {
+        self.on_mount(&self.mount)
+    }
+
+    /// The grants of `mount`, `None` when it isn't an additional mount.
+    pub fn additional_mount_grants(&self, mount: &str) -> Option<&[VaultPathGrant]> {
+        self.additional_mounts
+            .iter()
+            .find(|m| m.mount == mount)
+            .map(|m| m.path_grants.as_slice())
+    }
+
+    /// The normalized `path` when `writer` may write it on additional
+    /// `mount`: only that mount's grants open paths
+    /// ([`vault_paths::check_on_mount`]).
+    pub fn check_mount_path<'p>(
+        &self,
+        writer: vault_paths::Writer<'_>,
+        mount: &str,
+        path: &'p str,
+    ) -> Result<&'p str, vault_paths::PathDenied> {
+        let grants = self.additional_mount_grants(mount).map(path_grants);
+        vault_paths::check_on_mount(mount, grants.as_deref(), writer, path)
+    }
+
+    /// [`KvMount::owner_of`] on the instance's mount.
+    pub async fn owner_of(&self, path: &str) -> Result<Option<String>, SecretStoreError> {
+        self.own().owner_of(path).await
+    }
+
+    /// [`KvMount::metadata`] on the instance's mount.
+    pub async fn metadata(&self, path: &str) -> Result<PathMetadata, SecretStoreError> {
+        self.own().metadata(path).await
+    }
+
+    /// [`KvMount::set_owner`] on the instance's mount.
+    pub async fn set_owner(&self, path: &str, owner: &str) -> Result<(), SecretStoreError> {
+        self.own().set_owner(path, owner).await
+    }
+
+    /// [`KvMount::write_path`] on the instance's mount.
+    pub async fn write_path(
+        &self,
+        path: &str,
+        data: &BTreeMap<String, String>,
+    ) -> Result<bool, SecretStoreError> {
+        self.own().write_path(path, data).await
+    }
+
+    /// [`KvMount::write_path_cas`] on the instance's mount.
+    pub async fn write_path_cas(
+        &self,
+        path: &str,
+        data: &BTreeMap<String, String>,
+        version: u64,
+    ) -> Result<CasWrite, SecretStoreError> {
+        self.own().write_path_cas(path, data, version).await
+    }
+
+    /// [`KvMount::read_path`] on the instance's mount.
+    pub async fn read_path(
+        &self,
+        path: &str,
+    ) -> Result<Option<BTreeMap<String, String>>, SecretStoreError> {
+        self.own().read_path(path).await
+    }
+
+    /// [`KvMount::delete_path`] on the instance's mount.
+    pub async fn delete_path(&self, path: &str) -> Result<(), SecretStoreError> {
+        self.own().delete_path(path).await
+    }
+}
+
+/// The KV v2 operations of a [`VaultSecretStore`] on one mount.
+#[derive(Clone, Copy)]
+pub struct KvMount<'a> {
+    store: &'a VaultSecretStore,
+    mount: &'a str,
+}
+
+impl KvMount<'_> {
+    /// The mount these operations act on.
+    pub fn mount(&self) -> &str {
+        self.mount
+    }
+
     /// The owner id recorded on `path` (`Ok(None)`: nothing stored, or
     /// stored before owners were recorded, or a policy that can't read the
     /// metadata).
@@ -257,16 +369,17 @@ impl VaultSecretStore {
     /// the current version, the check-and-set base of the next write.
     pub async fn metadata(&self, path: &str) -> Result<PathMetadata, SecretStoreError> {
         let result = self
+            .store
             .with_relogin(|| async {
-                let client = self.client.read().await;
-                kv2::read_metadata(&*client, &self.mount, path).await
+                let client = self.store.client.read().await;
+                kv2::read_metadata(&*client, self.mount, path).await
             })
             .await?;
         match result {
             Ok(meta) => Ok(PathMetadata::Present {
                 owner: meta
                     .custom_metadata
-                    .and_then(|m| m.get(Self::OWNER_METADATA_KEY).cloned()),
+                    .and_then(|m| m.get(VaultSecretStore::OWNER_METADATA_KEY).cloned()),
                 current_version: meta.current_version,
             }),
             Err(ClientError::APIError { code: 404, .. }) => Ok(PathMetadata::Absent),
@@ -287,13 +400,13 @@ impl VaultSecretStore {
         let set = || async {
             let mut opts = SetSecretMetadataRequest::builder();
             opts.custom_metadata(HashMap::from([(
-                Self::OWNER_METADATA_KEY.to_string(),
+                VaultSecretStore::OWNER_METADATA_KEY.to_string(),
                 owner.to_string(),
             )]));
-            let client = self.client.read().await;
-            kv2::set_metadata(&*client, &self.mount, path, Some(&mut opts)).await
+            let client = self.store.client.read().await;
+            kv2::set_metadata(&*client, self.mount, path, Some(&mut opts)).await
         };
-        let result = self.with_relogin(set).await?;
+        let result = self.store.with_relogin(set).await?;
         match result {
             Ok(()) => Ok(()),
             Err(ClientError::APIError { code: 403, .. }) => {
@@ -318,13 +431,14 @@ impl VaultSecretStore {
             return Ok(false);
         }
         // Each guard is scoped to its call: `relogin` takes the write lock.
-        self.with_relogin(|| async {
-            let client = self.client.read().await;
-            kv2::set(&*client, &self.mount, path, data).await
-        })
-        .await?
-        .map(|_| true)
-        .map_err(|e| SecretStoreError(format!("Vault write {path}: {e}")))
+        self.store
+            .with_relogin(|| async {
+                let client = self.store.client.read().await;
+                kv2::set(&*client, self.mount, path, data).await
+            })
+            .await?
+            .map(|_| true)
+            .map_err(|e| SecretStoreError(format!("Vault write {path}: {e}")))
     }
 
     /// [`Self::write_path`] with KV v2 check-and-set: the write only lands
@@ -347,10 +461,11 @@ impl VaultSecretStore {
             ))
         })?;
         let result = self
+            .store
             .with_relogin(|| async {
-                let client = self.client.read().await;
+                let client = self.store.client.read().await;
                 let options = SetSecretRequestOptions { cas };
-                kv2::set_with_options(&*client, &self.mount, path, data, options).await
+                kv2::set_with_options(&*client, self.mount, path, data, options).await
             })
             .await?;
         match result {
@@ -366,9 +481,10 @@ impl VaultSecretStore {
         path: &str,
     ) -> Result<Option<BTreeMap<String, String>>, SecretStoreError> {
         let result = self
+            .store
             .with_relogin(|| async {
-                let client = self.client.read().await;
-                kv2::read::<BTreeMap<String, String>>(&*client, &self.mount, path).await
+                let client = self.store.client.read().await;
+                kv2::read::<BTreeMap<String, String>>(&*client, self.mount, path).await
             })
             .await?;
         match result {
@@ -385,16 +501,17 @@ impl VaultSecretStore {
     /// Idempotent.
     pub async fn delete_path(&self, path: &str) -> Result<(), SecretStoreError> {
         let result = self
+            .store
             .with_relogin(|| async {
-                let client = self.client.read().await;
-                kv2::delete_metadata(&*client, &self.mount, path).await
+                let client = self.store.client.read().await;
+                kv2::delete_metadata(&*client, self.mount, path).await
             })
             .await?;
         let result = match result {
             Err(ClientError::APIError { code: 403, .. }) => {
                 tracing::warn!(%path, "no delete access to the KV metadata: only the current version is deleted, older ones stay");
-                let client = self.client.read().await;
-                kv2::delete_latest(&*client, &self.mount, path).await
+                let client = self.store.client.read().await;
+                kv2::delete_latest(&*client, self.mount, path).await
             }
             other => other,
         };

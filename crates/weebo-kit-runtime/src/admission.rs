@@ -15,7 +15,9 @@ use kube::core::admission::{AdmissionRequest, AdmissionResponse, AdmissionReview
 use opentelemetry::KeyValue;
 use opentelemetry::metrics::Counter;
 use serde::de::DeserializeOwned;
-use weebo_kit_api::{Annotations, SecretStoreBackend, SecretTarget, VaultPathGrant};
+use weebo_kit_api::{
+    Annotations, SecretStoreBackend, SecretTarget, VaultAdditionalMount, VaultPathGrant,
+};
 use weebo_kit_application::emit;
 use weebo_kit_application::ports::SecretOwner;
 use weebo_kit_domain::Reason;
@@ -205,8 +207,11 @@ fn respond<R: Reason>(
 /// What the Vault paths check reads of the instance's Vault connection.
 #[derive(Debug, Clone, Copy)]
 pub struct VaultPaths<'a> {
+    /// The instance's own KV mount: a target naming it is a target on it.
+    pub mount: &'a str,
     pub path_prefix: &'a str,
     pub path_grants: &'a [VaultPathGrant],
+    pub additional_mounts: &'a [VaultAdditionalMount],
 }
 
 /// Refuses the Vault targets the secret stores would refuse, with their
@@ -221,10 +226,10 @@ pub struct VaultPaths<'a> {
 /// rules of every target: [`emit::check_targets`]). Call it once the
 /// object's instance is resolved: an instance not found is the reconcile's
 /// to report.
-pub fn check_vault_targets(
+pub fn check_vault_targets<'a>(
     targets: &[SecretTarget],
     namespace: Option<&str>,
-    vault: Option<VaultPaths<'_>>,
+    vault: Option<VaultPaths<'a>>,
 ) -> Result<(), String> {
     // Only the namespace matters to the rules (kind and name are not read).
     let owner = match namespace {
@@ -245,16 +250,28 @@ pub fn check_vault_targets(
         let Some(path) = &target.path else {
             continue;
         };
-        let grants: Vec<PathGrant<'_>> = vault
-            .path_grants
-            .iter()
-            .map(|g| PathGrant {
-                namespaces: &g.namespaces,
-                cluster_scoped: g.cluster_scoped,
-                paths: &g.paths,
-            })
-            .collect();
+        let grants = |grants: &'a [VaultPathGrant]| -> Vec<PathGrant<'a>> {
+            grants
+                .iter()
+                .map(|g| PathGrant {
+                    namespaces: &g.namespaces,
+                    cluster_scoped: g.cluster_scoped,
+                    paths: &g.paths,
+                })
+                .collect()
+        };
         let writer = namespace.map_or(Writer::Cluster, Writer::Namespaced);
+        if let Some(mount) = target.mount.as_deref().filter(|m| *m != vault.mount) {
+            let extra = vault
+                .additional_mounts
+                .iter()
+                .find(|m| m.mount == mount)
+                .map(|m| grants(&m.path_grants));
+            vault_paths::check_on_mount(mount, extra.as_deref(), writer, path)
+                .map_err(|e| format!("secret target {:?}: {e}", target.name))?;
+            continue;
+        }
+        let grants = grants(vault.path_grants);
         // The stores' subtree: the object's own namespace (a namespaced
         // object's target may only repeat it), the target's for a
         // cluster-scoped one.
@@ -663,6 +680,7 @@ mod tests {
             name: name.into(),
             namespace: None,
             path: path.map(String::from),
+            mount: None,
         }
     }
 
@@ -674,8 +692,10 @@ mod tests {
             paths: vec!["shared/auth".into()],
         }];
         let vault = Some(VaultPaths {
+            mount: "secret",
             path_prefix: "weebo",
             path_grants: &grants,
+            additional_mounts: &[],
         });
         let granted = [vault_target("app", Some("shared/auth"))];
         assert_eq!(check_vault_targets(&granted, Some("auth"), vault), Ok(()));
@@ -698,8 +718,10 @@ mod tests {
             paths: vec!["shared/auth".into()],
         }];
         let vault = Some(VaultPaths {
+            mount: "secret",
             path_prefix: "weebo",
             path_grants: &grants,
+            additional_mounts: &[],
         });
         // A namespaced object naming another namespace: refused like the
         // stores do (CrossNamespace), even with a path in that subtree.
@@ -756,5 +778,45 @@ mod tests {
         assert_eq!(check_vault_targets(&kubernetes, Some("a"), None), Ok(()));
         let err = check_vault_targets(&[vault_target("app", None)], Some("a"), None).unwrap_err();
         assert!(err.contains("no Vault connection"), "{err}");
+    }
+
+    #[test]
+    fn a_target_on_an_additional_mount_is_checked_against_its_grants() {
+        let users = [VaultAdditionalMount {
+            mount: "users".into(),
+            path_grants: vec![VaultPathGrant {
+                namespaces: vec!["ci".into()],
+                cluster_scoped: false,
+                paths: vec!["+/forgejo-token".into()],
+            }],
+        }];
+        let vault = Some(VaultPaths {
+            mount: "secret",
+            path_prefix: "weebo",
+            path_grants: &[],
+            additional_mounts: &users,
+        });
+        let on = |mount: &str, p: &str| SecretTarget {
+            mount: Some(mount.into()),
+            ..vault_target("app", Some(p))
+        };
+        assert_eq!(
+            check_vault_targets(&[on("users", "max/forgejo-token")], Some("ci"), vault),
+            Ok(())
+        );
+        for (target, refused) in [
+            (on("users", "weebo/ci/app"), "on mount \"users\""),
+            (on("orgs-prod", "max/forgejo-token"), "additionalMounts"),
+            (on("secret", "max/forgejo-token"), "outside"),
+        ] {
+            let err = check_vault_targets(&[target], Some("ci"), vault).unwrap_err();
+            assert!(err.contains(refused), "{err}");
+        }
+        let no_path = SecretTarget {
+            mount: Some("users".into()),
+            ..vault_target("app", None)
+        };
+        let err = check_vault_targets(&[no_path], Some("ci"), vault).unwrap_err();
+        assert!(err.contains("needs an explicit path"), "{err}");
     }
 }
