@@ -2,6 +2,16 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.28.0](https://github.com/batleforc/weebo-operator-kit/compare/f9dd08dfd26f95a1bbb85bc7e4e300b1eb5c1e51..v0.28.0) - 2026-11-06
+#### Features
+- move to the weebo-si-operator GitHub org - ([4482ed8](https://github.com/batleforc/weebo-operator-kit/commit/4482ed895d1bccb3334443aff1e53cc80455e846)) - Max Batleforc, Claude Opus 5.5
+#### Documentation
+- (**rfc-0007**) namespaces per env, human and machine access models - ([f9dd08d](https://github.com/batleforc/weebo-operator-kit/commit/f9dd08dfd26f95a1bbb85bc7e4e300b1eb5c1e51)) - Max Batleforc, Claude Opus 5.5
+- RFC 0007 last review, migration journal - ([3796fae](https://github.com/batleforc/weebo-operator-kit/commit/3796fae0e22012eef87575764424a4bd63ed9abb)) - Max Batleforc, Claude Opus 5.5
+- plan the move to the weebo-si-operator GitHub org - ([f663049](https://github.com/batleforc/weebo-operator-kit/commit/f663049a1e86f5e2e814d978c27f696155b68800)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.27.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/fc04ead9e823822ff26f36f18d02c77891cb0ed2..v0.27.0) - 2026-11-06
 #### Features
 - (**vault**) secretTargets on additional KV mounts - ([8d636ed](https://github.com/weebo-si-operator/weebo-operator-kit/commit/8d636ed0e441564fe7ac631490872ad52244cec7)) - Max Batleforc, Claude Opus 5.5
