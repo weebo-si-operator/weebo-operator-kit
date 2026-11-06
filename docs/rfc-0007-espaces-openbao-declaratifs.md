@@ -8,7 +8,7 @@
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : questions 1 à 9 tranchées, namespaces OpenBao par env, neutralité vis-à-vis du fournisseur d'identité |
+| Révisée    | 2026-11-06 : décisions 1 à 14 ; revue finale à six lentilles le même jour, sept questions rouvertes (§15, 15 à 21) |
 | Remplace   | — |
 | Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{spaces,forgejo,auth-base}.tf`, `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
@@ -90,7 +90,7 @@ spec:
 
 ```text
 # et côté humain : un namespace par env
-bao login -namespace=preprod -method=oidc -path=oidc
+bao login -namespace=preprod -method=oidc -path=authentik   # -path : le name du backend
 bao kv get -namespace=preprod -mount=orgs batleforc-org/weebo-si/x
 ```
 
@@ -493,7 +493,7 @@ ServiceAccount, n'accorde rien (fermé).
 
 ### 4.4 Surface d'API
 
-Aucune API HTTP nouvelle. La surface est celle des trois CRDs (§4.1), plus
+Aucune API HTTP nouvelle. La surface est celle des six CRDs (§4.1), plus
 l'endpoint `/metrics` et les sondes du kit, sans authentification, sur le port
 interne du pod comme chez les opérateurs frères.
 
@@ -619,7 +619,8 @@ avant toute écriture :
 - **namespace, mount, backend d'auth** : la `custom_metadata` du namespace et
   la `description` du mount et du backend portent la même marque, posée à la
   création, pour l'humain qui lit `bao secrets list`. L'opérateur ne la
-  vérifie pas et ne la repose jamais (sa policy n'a pas `update` sur ces
+  vérifie pas et ne la repose jamais (son `update` sur ces chemins ne sert qu'à
+  la création, un objet existant répond 400 ; il n'a pas `update` sur ces
   chemins). Il les identifie par leur chemin et leur type, et ne fait que les
   créer : un mount ou un backend déjà là au bon type est utilisé tel quel
   (c'est le cas d'un layout recréé).
@@ -742,11 +743,16 @@ Ce que cette policy refuse, et que §6.P vérifie un par un :
   l'entité de l'opérateur lui-même ; un groupe externe ne tient que par son
   alias. Les familles ne se croisent pas : un rôle `grant_*` ne porte que
   `grant_*`, le rôle `default` que `user_space`, un groupe que `org_*`.
-  **Limite mesurée** : OpenBao ne vérifie élément par élément que les listes
-  JSON. Une chaîne `"org_a,grant_x"` est comparée en entier au glob `org_*`,
-  acceptée, puis découpée. Cette séparation tient donc contre un bug de
-  l'opérateur (son adaptateur n'envoie que des listes JSON, test
-  `policies_are_sent_as_json_lists`), pas contre un opérateur compromis (T15) ;
+  **Limite mesurée, corrigée en revue finale** : contre un glob,
+  `allowed_parameters` ne compare que des chaînes. Une liste JSON est
+  **toujours** refusée, même `["org_a"]` seul (constaté le 2026-11-06 sur
+  2.7.1, `valueInSlice` dans `internal/vault/policy/acl.go`), et une chaîne
+  `"org_a,grant_x"` est comparée en entier, acceptée, puis découpée.
+  L'adaptateur doit donc envoyer chaque policy **en chaîne seule, sans
+  virgule** (le domaine refuse `,` dans les noms), hors des requêtes typées
+  de `vaultrs`, qui sérialisent des listes et ajoutent `name` au corps du
+  groupe (refusé lui aussi). La séparation des familles n'est donc pas une
+  frontière, même contre un bug : question 16 et T15 ;
 - aucun `list` : l'opérateur lit par nom ce qu'il a déclaré, il n'énumère
   pas.
 
@@ -1005,7 +1011,11 @@ une preuve d'exploitation sur le lab.
    contournements trouvés : le paramètre historique `policies` passait par le
    `"*"` d'`allowed_parameters` (fermé par `denied_parameters`, refus
    constaté), et une liste en chaîne à virgules passe les globs (non fermable
-   par la policy, voir §6.1 et T15).
+   par la policy, voir §6.1 et T15). **Erreur de cette sonde, relevée en revue
+   finale** : les refus « en liste JSON » ne prouvaient rien, toute liste JSON
+   est refusée (`["org_a"]` seul compris), et le corps d'un groupe envoyé par
+   `vaultrs` (avec `name`) aussi. Constaté en plus le même jour : l'opérateur
+   peut activer un backend `approle` (`sys/auth/+` sans contrainte de type).
 4. **Succès de la policy de bootstrap.** Le même token crée le namespace
    `test`, son mount `orgs`, un backend OIDC vers l'IdP jetable,
    `org_test_dev`, le groupe et l'alias, puis supprime alias, groupe et
@@ -1037,22 +1047,21 @@ une preuve d'exploitation sur le lab.
 8. **Refus de l'opérateur.** Une seconde `OpenbaoOrganization`
    `spec.name: batleforc-org` passe `Ready=False`, `Conflict`, et le compteur
    `weebo_openbao_vault_writes_total` ne bouge pas. Un layout dont on retire
-   `dev` ou le namespace `recette` sans l'annotation passe
-   `DisruptiveChangeBlocked`, et le nombre d'alias ne bouge pas. Un layout qui
-   déclare un namespace `autre`, absent de `bounds`, passe `OutOfBounds` sans
-   aucun appel à OpenBao.
+   `dev` sans l'annotation passe `DisruptiveChangeBlocked`, et le nombre
+   d'alias ne bouge pas. Un `OpenbaoNamespace` `autre`, absent de `bounds`,
+   passe `OutOfBounds` sans aucun appel à OpenBao.
 9. **Suppression.** Supprimer la CR de test `test` : l'alias disparaît le
    premier (`bao read -namespace=devenv identity/group-alias/id/<id>` en 404
    avant le groupe), et un `bao kv get` du membre, avec un token émis **avant**
    la suppression, échoue en 403 : les policies d'identité se résolvent à
    chaque requête. Les secrets de `devenv/orgs/test/` sont toujours là pour
    le root.
-10. **Changement d'IdP.** Sur l'instance jetable, ajouter un second backend
-    `dex2` au namespace `test` vers un second IdP, avec les mêmes noms de
-    groupes : un membre de `test_dev` du second IdP obtient les mêmes droits
-    sans aucun changement de `OpenbaoOrganization`. Retirer le premier
-    backend du layout avec l'annotation : ses alias disparaissent, le backend
-    reste (`AuthOrphaned`).
+10. **Changement d'IdP.** *Invalidé en revue finale* : un groupe externe
+    d'OpenBao 2.7.1 ne porte qu'**un** alias, un second le remplace
+    (constaté le 2026-11-06 : deux alias `z_dev` sur `idp` puis `idp2`, il ne
+    reste que celui d'`idp2`). Deux backends `oidc` dans un namespace
+    donneraient une boucle de réécriture. La forme qui marche est la
+    question 15.
 11. **Scellé.** Sur l'instance jetable : `bao operator seal`. Les CRs passent
     `VaultSealed` en moins d'un cycle, aucune écriture n'est tentée, un log
     `warn` par CR et par backoff. Après `unseal`, `Ready=True` sans aucune
@@ -1082,8 +1091,11 @@ policies et des alias d'identité dans OpenBao, et lit le `client_secret` de
 l'IdP. Les namespaces enferment ce qu'il peut abîmer : **un opérateur
 compromis vaut l'ensemble des espaces** (il peut ouvrir n'importe quel espace
 à n'importe quel groupe, ou pointer un backend vers un IdP qu'il contrôle),
-**mais ni le root, ni `mv`, ni `weebo_admin`, ni aucun secret qu'il lirait
-lui-même** (T1, T2).
+**mais ni le root, ni `mv`, ni `weebo_admin`**. Il **peut** lire tous les
+secrets des espaces : en se liant lui-même par un rôle `grant_*` à son
+propre ServiceAccount, ou par un backend qu'il active (revue finale,
+`approle` constaté activable sur 2.7.1). La question 16 borne ce qui peut
+l'être, l'audit (question 5) détecte le reste (T1, T2).
 
 ### 7.1 Modèle de menace
 
@@ -1127,7 +1139,7 @@ flowchart LR
 | T11 | Altération : un objet d'un namespace écrasé par erreur (collision de noms, objet posé à la main) | F3 | Marque `owner` (§5.3, `NotOwned`) | Aucun |
 | T13 | Élévation : un grant trop large (sujet `"*"`, `organizations: ["*"]`) ouvre les espaces de toutes les orgs à tous les workloads | F1 → F3 | CEL : un sujet large exige `{sa.namespace}` dans chaque règle (§4.3). Advisory `BroadGrant` et Event à chaque changement. Grants cluster-scoped, projet `infra` seul | Un grant large mais borné par `{sa.namespace}` reste voulu. Accepté |
 | T14 | Usurpation : quelqu'un crée un namespace Kubernetes au nom d'un repo (`weebo-si`) pour lire `<org>/weebo-si/*` par un grant à `{sa.namespace}` | F1, F3 | Créer un namespace Kubernetes est un droit d'admin du cluster (kyverno, AppProjects). Restreindre les sujets (`namespace: "team-*"`) quand des namespaces sont en libre-service | Égal à ce que `mv_reader_policy` accepte déjà dans le root. Accepté |
-| T15 | Élévation : un rôle `grant_*` qui porterait `org_*` ou `user_space`, le rôle `default` qui porterait `org_*`, un groupe qui porterait `grant_*` | F3 | Contre un bug : l'adaptateur n'envoie que des listes JSON, que `allowed_parameters` vérifie élément par élément, et `denied_parameters` ferme l'alias `policies` (§6.P n°3, constaté). Contre un opérateur compromis : rien, une chaîne `"grant_x,org_a"` passe le glob (constaté sur 2.7.1) | Sans gain réel pour l'attaquant : un opérateur compromis écrit déjà n'importe quelle policy `org_*`, avec `path "*"`, dans le namespace (T2). La séparation des familles n'ajoute pas de frontière, elle évite les erreurs. Accepté. À signaler à OpenBao en amont |
+| T15 | Élévation : un rôle `grant_*` qui porterait `org_*` ou `user_space`, le rôle `default` qui porterait `org_*`, un groupe qui porterait `grant_*` | F3 | Aucune frontière : une liste JSON est toujours refusée par un glob, une chaîne à virgules passe (constaté sur 2.7.1). Seul le code de l'opérateur (une policy en chaîne seule, `,` refusée dans les noms) tient les familles séparées. `denied_parameters` ferme l'alias `policies` (constaté) | Sans gain réel pour l'attaquant : un opérateur compromis écrit déjà n'importe quelle policy avec `path "*"` dans le namespace (T2). Question 16. À signaler à OpenBao en amont |
 | T12 | Fuite : le `client_secret` OIDC lu par l'opérateur | F7 | Lu dans le seul namespace `weebo-openbao` (Role, §6.6), gardé en mémoire le temps de l'écriture, jamais loggué. Le status n'en garde que l'empreinte SHA-256, sur une valeur à haute entropie générée par l'IdP | Un admin du cluster lit déjà ce Secret. Accepté |
 
 ### 7.2 Authentification et autorisation
@@ -1216,8 +1228,8 @@ Chaque identité qui touche aux espaces, ce qu'elle reçoit, et ce qui lui a
 
 | Identité | Reçoit | Retiré, et pourquoi c'est possible |
 | --- | --- | --- |
-| weebo-openbao (OpenBao, root) | `create`/`read` de `sys/namespaces/<ns>` listés, rien d'autre dans le root | `list` des namespaces, `update` : l'opérateur lit ce qu'il a déclaré, la marque ne se pose qu'à la création |
-| weebo-openbao (OpenBao, dans `<ns>`) | §6.1 : mounts `orgs`/`users` et backends en création, config et rôle `default` d'un backend, policies `user_space`/`org_*`, groupes externes `org_*`, alias | tout `list` ; `delete`/`update`/`tune` sur mounts et backends ; tout autre nom de mount, de rôle, de policy, de groupe ; les données |
+| weebo-openbao (OpenBao, root) | `update`/`read` de `sys/namespaces/<ns>` listés (`update` crée, et ne change rien sur un namespace existant, §6.P n°3), rien d'autre dans le root | `list` des namespaces, `patch`, `delete` |
+| weebo-openbao (OpenBao, dans `<ns>`) | §6.1 : mounts `orgs`/`users` et backends en création, config et rôle `default` d'un backend, policies `user_space`/`org_*`, groupes externes `org_*`, alias | tout `list` ; `delete`/`tune` sur mounts et backends (`update` n'y sert qu'à la création) ; tout autre nom de mount, de rôle, de policy, de groupe ; les données |
 | weebo-openbao (Kubernetes) | ses six kinds et leur status, Events, un Secret CA par `resourceNames`, `get` des Secrets OIDC par `resourceNames` dans son namespace | toute autre CRD, même en lecture (l'advisory `AuthentikGroupUnknown` du brouillon) ; `list`/`watch` des Secrets |
 | weebo-openbao (réseau) | egress vers l'apiserver et OpenBao | l'IdP, Internet |
 | un humain, rôle OIDC `default` | les policies de ses groupes `org_*` dans ce namespace, ou `user_space` dans `users` ; token 1 h, 8 h au plus | aucune policy par le rôle lui-même hors `user_space` ; un token d'un env n'ouvre pas un autre env |
@@ -1282,7 +1294,7 @@ comme suites :
 | noms d'orgs, de rôles, de groupes de l'IdP, de namespaces | non : des noms d'organisations | CRs, status, Events, logs, policies OpenBao | durée de vie de la CR. Events : 1 h (défaut apiserver). Logs : rétention ClickStack | admins du cluster, ClickStack | non |
 | IDs de groupes, d'alias, accesseurs | non | `status` | durée de vie de la CR | admins du cluster | non |
 | URL de discovery, client ID OIDC | non | CR, OpenBao | durée de vie de la CR | admins du cluster | non |
-| empreinte SHA-256 du `client_secret` | non (un secret machine, pas une personne) | `status.namespaces[].auth[]` | durée de vie de la CR | admins du cluster | non |
+| empreinte SHA-256 du `client_secret` | non (un secret machine, pas une personne) | `OpenbaoNamespace.status.auth[]` | durée de vie de la CR | admins du cluster | non |
 | noms et namespaces de ServiceAccounts des grants | non : des identités de workloads | CR, status, rôles OpenBao | durée de vie de la CR | admins du cluster | non |
 | usernames | oui | **nulle part dans l'opérateur** : `user_space` est un gabarit, et l'opérateur ne voit jamais un username | — | — | — |
 | secrets des espaces | potentiellement | OpenBao seul. L'opérateur n'y a pas accès | celle des humains | leurs propriétaires | non |
@@ -1596,7 +1608,98 @@ Choix du brouillon, gardés :
 
 ### Encore ouvertes
 
-Aucune.
+Rouvertes par la revue finale du 2026-11-06 (six lentilles : expérience,
+sécurité, résilience, qualité du code, stabilité, honnêteté). Les points
+vérifiés sur OpenBao 2.7.1 le sont depuis une sonde podman du même jour.
+
+15. **Un IdP de plus sans coupure (bloquant).** Un groupe externe ne porte
+    qu'un alias : le second remplace le premier (constaté). Deux formes :
+    un groupe par (org, rôle, backend), `org_<org>_<rôle>_<backend>`, chacun
+    avec son alias, ce qui multiplie les objets par le nombre de backends
+    `oidc` ; ou un seul backend `oidc` par namespace (CEL), et la migration
+    d'IdP se fait par bascule, avec une coupure. **Recommandation** : un
+    groupe par backend, la neutralité vis-à-vis de l'IdP (§3) en dépend.
+16. **Ce que la policy de l'opérateur peut vraiment borner (bloquant).** Les
+    globs d'`allowed_parameters` refusent toute liste JSON et laissent passer
+    une chaîne à virgules (constaté) : les familles `org_*`/`grant_*`/
+    `user_space` ne sont pas une frontière. L'opérateur peut aussi activer
+    `approle` (constaté), écrire `pem_keys` ou un autre IdP dans
+    `auth/+/config`, et se lier lui-même par un rôle `grant_*` : il lit alors
+    tous les espaces. À trancher : contraindre `type` sur `sys/auth/+`
+    (`oidc`, `kubernetes`) et sur les mounts (`kv-v2`), envoyer les policies en
+    chaîne seule hors des requêtes typées de `vaultrs`, et accepter le reste
+    comme résiduel détecté par l'audit (une alerte sur tout rôle `grant_*` lié
+    au namespace `weebo-openbao`) ; ou séparer en deux identités (une qui
+    écrit les backends, une qui écrit policies et groupes). **Recommandation** :
+    la première, la seconde ne change pas ce qu'un attaquant peut atteindre.
+17. **Injection HCL par les chemins de règles (bloquant).** `PATH_PATTERN`
+    laisse passer `"`, `{`, `}`, `#`, espaces et retours à la ligne dans un
+    segment : un chemin de grant peut ajouter un bloc `path "*"`. Il faut un
+    alphabet de segment propre aux règles (`^[a-z0-9._-]+$`, plus `+`, `*` final
+    et les trois jetons entiers), appliqué aussi à `metadataPath`, et un test
+    qui parse le HCL rendu. **Recommandation** : cet alphabet, sans
+    échappement (refuser plutôt qu'échapper).
+18. **Sujets d'un grant en produit croisé.** Un rôle Kubernetes compare le
+    nom et le namespace du ServiceAccount à deux listes séparées : les sujets
+    `{a, x}` et `{b, y}` laissent aussi passer `a/y` et `b/x`. Le sélecteur
+    est un `LabelSelector` `matchLabels` (JSON), et `{}` vaut « tous les
+    namespaces ». **Recommandation** : un rôle par sujet
+    (`grant_<nom>_<i>`), un sélecteur modélisé en `matchLabels` non vide et
+    traité comme un sujet large (règles à `{sa.namespace}`), pas de `host`
+    ni de `caCertRef` en v1 sur un backend `kubernetes` (sinon le jeton
+    d'OpenBao part vers l'hôte nommé).
+19. **Le changement du kit est plus gros que deux champs.** `VaultSecretStore`
+    n'a qu'un client et se connecte d'emblée (`secret_vault.rs`), deux
+    `additionalMounts` de même nom `orgs` dans deux namespaces ne se
+    distinguent pas (`find(|m| m.mount == mount)`), et le login, le relogin
+    et `token_is_stale` sont privés. À trancher : login par mount à la
+    première utilisation, échec confiné à ce mount ; unicité de
+    `(vaultNamespace, mount)` et `vaultNamespace` sur `SecretTarget` ; une
+    session publique dans le kit, réutilisée par weebo-openbao, avec des
+    erreurs qui gardent le code HTTP (`SecretStoreError` n'est qu'une
+    chaîne) et un `lookup-self` fait dans le root seulement.
+    **Recommandation** : les trois, dans la release du kit de la phase 1.
+20. **Ne se souvenir de ses objets que par le status.** Sans `list`, un objet
+    créé puis oublié par le status (restauration raft plus ancienne que les
+    CRs, `force-orphan`) reste en place et accorde toujours. À trancher :
+    rendre `list` sur `<ns>/sys/policies/acl` et `<ns>/identity/group/name`
+    (des noms, pas de secrets) pour un passage de nettoyage des objets marqués
+    `managed-by` sans CR ; ou garder le moindre privilège et documenter la
+    procédure après restauration. **Recommandation** : rendre `list` sur ces
+    deux chemins, contre la décision « aucun `list` » de §7.7.
+21. **Supprimer sans tout couper, ni rester coincé.** Retirer le chart ou
+    désactiver `enabled` supprime les CRs, et les finalizers retirent tous
+    les accès ; si l'`OpenbaoInstance` part la première, les finalizers ne
+    peuvent plus se connecter et les CRs restent `Terminating`.
+    `force-orphan` laisse au contraire des accès vivants sans CR. À trancher :
+    finalizer `in-use` sur l'instance, CRs dans une application ArgoCD à
+    part avec `Prune=false`, et `force-orphan` qui retire quand même ce qui
+    accorde (alias, rôle) et ne garde que les données. **Recommandation** :
+    les trois.
+
+Faits, pas des questions, à régler avant la phase 3 (revue de stabilité) :
+le working tree de weebo-si porte des changements non commités hors des deux
+`.tf` (`vault.tf` : `bound_claims` sur `weebo_admin`, correctif de sécurité à
+commiter à part tout de suite, `claim_mappings`, `user_space` sur `reader` ;
+le binding Authentik `vault-access` ; `additionalMounts` de forgejo sans
+`vaultNamespace`) ; la NetworkPolicy d'OpenBao doit ouvrir `weebo-forgejo` et
+chaque namespace sujet d'un grant ; l'AppProject `infra` a besoin de `dest`
+et `sourceRepo`, pas seulement des kinds.
+
+Constats de la revue que le texte corrige sans changer de décision : la
+commande de login de §1, le nombre de CRDs, §6.P n°8 et n°10, §7.7 contre
+§6.1, la phase du device d'audit (avant la policy de l'opérateur), la
+réponse de §7 sur les secrets lisibles par un opérateur compromis, l'erreur
+de la sonde §6.P n°3 sur les listes JSON. Restent à reporter dans le texte,
+sans décision : la liste des raisons avec leur remède, la note « retirer
+`allow-disruptive-update` après la synchro », les colonnes `kubectl get`, les
+Events (`Normal` dans le kit, `LevelChanged` et `DriftCorrected` en Events et
+non en advisories), `organizations: ["*"]` défini sur l'instance, l'ordre
+d'écriture d'un grant qui s'élargit d'un côté et se resserre de l'autre, le
+`caSecretRef` vers la copie de `openbao-tls` dans `weebo-openbao`,
+l'`audience` des rôles Kubernetes, l'alternative « Terraform avec la policy
+de §6.1 au lieu du token root » en §12, et la liste des fichiers de weebo-si
+touchés.
 
 Faits constatés le 2026-11-06 sur OpenBao 2.7.1 (§6.P n°2 et 3) :
 l'isolation des namespaces tient, et la policy de §6.1, corrigée, refuse tout
@@ -1624,7 +1727,7 @@ contrôle de §7) arrive avant la première CR (la surface), et la sonde de
 | 0 | §6.P n°2 et 3 : **faits** le 2026-11-06 (sonde podman, 2.7.1). Reste n°1 (branche A, sur le lab) | référence |
 | 1 | Kit : `vaultNamespace` et `auth` sur `VaultAdditionalMount`, client par (namespace, login), `vault_contract.rs`, doc `additionalMounts`. Release `feat` | §14 kit |
 | 2 | Dépôt `weebo-openbao` depuis le template : six CRDs, CEL, rendu des règles, use-cases, adaptateur, `test:live-openbao` avec Dex et TokenReview | §14 unitaires, intégration, contrat |
-| 3 | weebo-si : policy `weebo_openbao_operator` et rôle `weebo-openbao` (Terraform), NetworkPolicy, AppProject, chart avec la seule `OpenbaoInstance` | §6.P n°3 et 4, T1, T8, T15 |
-| 4 | Device d'audit OpenBao (changement à part, question 5). Côté IdP : client OIDC et Secret. Les `OpenbaoAccessLevel`, les cinq `OpenbaoNamespace`, le layout, `OpenbaoOrganization/batleforc-org` avec ses groupes | §6.P n°5, 6 et 9 |
+| 3 | Device d'audit OpenBao (changement à part, question 5), **avant** la policy de l'opérateur. weebo-si : policy `weebo_openbao_operator` et rôle `weebo-openbao` (Terraform), NetworkPolicy, AppProject (`clusterResourceWhitelist`, `dest`, `sourceRepo`), chart avec la seule `OpenbaoInstance` | §6.P n°3 et 4, T1 |
+| 4 | Côté IdP : client OIDC et Secret. Les `OpenbaoAccessLevel`, les cinq `OpenbaoNamespace`, le layout, `OpenbaoOrganization/batleforc-org` avec ses groupes | §6.P n°5, 6 et 9 |
 | 5 | Modèle machine : grant `forgejo-user-tokens`, weebo-forgejo au nouveau kit avec son entrée `users`. Retrait de `user_space` du rôle `reader` du root | §6.P n°7 |
 | 6 | Doc `Infra/openbao.mdx` (les deux modèles, le login par namespace, « donner un accès à un système »), alertes ClickStack, budget `weebo-kit-perf` | §6.P n°11 et 12 |

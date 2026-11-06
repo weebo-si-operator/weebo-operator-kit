@@ -2,7 +2,7 @@
 
 | Champ  | Valeur |
 | ------ | ------ |
-| Statut | Préparée, rien n'est transféré |
+| Statut | En cours : les six dépôts sont transférés le 2026-11-06 (§8) |
 | Créée  | 2026-11-06 |
 | Cible  | <https://github.com/weebo-si-operator> (plan free, vide au 2026-11-06) |
 
@@ -37,7 +37,7 @@ recréer `batleforc/weebo-<x>` après le transfert.
 | --- | --- | --- |
 | git (Cargo `git = …`, clone) | `github.com/batleforc/weebo-operator-kit` | redirigée |
 | raw, épinglée par sha256 | `raw.githubusercontent.com/batleforc/weebo-operator-kit/v0.27.0/tasks/rust.yaml` | redirigée, contenu identique |
-| workflow réutilisable | `uses: batleforc/weebo-operator-kit/.github/workflows/publish.yml@v0.27.0` | redirigée d'après GitHub : **à vérifier** par une CI (étape 2) avant de compter dessus |
+| workflow réutilisable | `uses: batleforc/weebo-operator-kit/.github/workflows/publish.yml@v0.27.0` | **non** : constaté le 2026-11-06, la CI de weebo-angos passe en `startup_failure` (`referenced_workflows` vide) dès le transfert du kit. Chaque opérateur doit réécrire ses `uses:` dans la foulée |
 | release asset | `…/releases/download/vX/weebo-operator-docs-X.tgz` | redirigée |
 | **image et chart GHCR** | `ghcr.io/batleforc/charts/weebo-forgejo` | **non** : les paquets restent sous `batleforc`, les nouvelles versions partent sous `ghcr.io/weebo-si-operator/…` |
 | **GitHub Pages** | `batleforc.github.io/weebo-forgejo` | **non** : le site devient `weebo-si-operator.github.io/weebo-forgejo` |
@@ -64,6 +64,12 @@ que la regexp n'accepte pas le nouveau propriétaire.
 - [ ] Renovate (GitHub App) installé sur l'org, avec les dépôts migrés.
 - [ ] 2FA exigée, et les membres ou équipes qui ont le droit de pousser des
       tags (les tags déclenchent les releases).
+- [ ] **Rulesets** : le transfert garde les règles mais pas le contournement
+      implicite du propriétaire d'un compte personnel. Un ruleset à `update` ou
+      `pull_request` sans `bypass_actors` bloque alors tout push sur `main`.
+      Ajouter `OrganizationAdmin` en contournement (fait le 2026-11-06 sur
+      weebo-operator-kit, ruleset `main`, et weebo-authentik, ruleset
+      `Nothing`).
 - [ ] Relever, par dépôt, ce que le transfert ne garde pas forcément :
       secrets et variables Actions, environments, règles de protection et
       rulesets, webhooks, deploy keys. `gh secret list`, `gh variable list`,
@@ -204,3 +210,25 @@ Un dépôt se retransfère (`gh api -X POST repos/weebo-si-operator/<x>/transfer
 Les anciens paquets GHCR étant conservés, weebo-si peut revenir à
 `ghcr.io/batleforc/…` en un commit. Les paquets publiés sous l'org y
 restent.
+
+## 8. Journal
+
+- **2026-11-06** : relevé avant transfert (§3) : aucun secret ni variable
+  Actions, pas de webhook, pas de protection de branche classique, un
+  environment `github-pages` par dépôt, rulesets sur le kit (`main`) et
+  weebo-authentik (`Nothing`).
+- Transfert du kit, puis vérification : git et raw redirigent (sha256 du
+  Taskfile identique), les workflows réutilisables **non**.
+- Transfert de weebo-angos, weebo-forgejo, weebo-authentik, weebo-batlehub,
+  weebo-stalwart. Réécriture §5 avec `MIGRATED=1`, dépendance
+  `weebo-operator-lib` gardée sur `batleforc`, `chart-repo` passé
+  explicitement, `Cargo.lock` régénéré (même commit du kit, seule la source
+  change). Les opérateurs sur v0.24.0 prennent aussi `async-executor` 1.14.1
+  (1.14.0 retiré, `cargo deny` refuse), comme le kit en `fc04ead`.
+- Kit : `feat: move to the weebo-si-operator GitHub org` (`4482ed8`), avec
+  l'identité cosign à deux propriétaires et `pin-kit.sh` qui bascule la
+  dépendance du chart de kit.
+- Restent : CI vertes, release du kit (étape 3, chart `weebo-operator-lib`
+  sous l'org), releases des opérateurs, puis weebo-si (étape 5), et les
+  paramètres de l'org qui demandent `admin:org` (`gh auth refresh -s
+  admin:org`) ou l'interface : Actions, paquets, Renovate, Pages.
