@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.30.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/7961c51833bf2b96ae76ef4d338c87172eae84a9..v0.30.0) - 2026-11-06
+#### Features
+- (**chart**) clusterSecrets false without watch.namespace, releaseSecrets - ([7961c51](https://github.com/weebo-si-operator/weebo-operator-kit/commit/7961c51833bf2b96ae76ef4d338c87172eae84a9)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.29.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/73b3d6688f8acf96c3f1ca66d4709f7466626224..v0.29.0) - 2026-11-06
 #### Features
 - ![BREAKING](https://img.shields.io/badge/BREAKING-red) (**vault**) Vault namespaces and per-mount logins for additional mounts - ([f011aef](https://github.com/weebo-si-operator/weebo-operator-kit/commit/f011aef232b94403ee6527f6d9fe96514b3a7524)) - Max Batleforc, Claude Opus 5.5
