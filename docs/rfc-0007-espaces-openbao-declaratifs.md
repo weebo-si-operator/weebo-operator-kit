@@ -8,7 +8,7 @@
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves de §6.P à faire, écarts et point de reprise en §17 |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites, écarts et point de reprise en §17 |
 | Remplace   | — |
 | Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,spaces,forgejo}.tf`, `2.argo/helm/vault/{main,sub}` (opérateur, `OpenbaoInstance`, device d'audit), `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
@@ -1732,7 +1732,7 @@ contrôle de §7) arrive avant la première CR (la surface), et la sonde de
 
 ---
 
-## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 3, phase 4 en cours
+## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 4
 
 Phases 0 à 3 livrées le 2026-11-06. Les sections 1 à 16 restent le texte
 relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
@@ -1823,11 +1823,11 @@ relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
   `InstanceBindingChanged`, `TokenSecretNotAllowed`) ne servent pas dans
   weebo-openbao et restent à retirer.
 
-### 17.5 Phase 4 : réconciliée, preuves à faire (point de reprise)
+### 17.5 Phase 4 : livrée et prouvée (2026-11-13)
 
 Poussée dans weebo-si (`c4e62809`, branche `develop`) le 2026-11-06, puis
-réconciliée sans intervention le 2026-11-13 (état ci-dessous). Les preuves de
-§6.P ne sont pas encore faites.
+réconciliée sans intervention le 2026-11-13 (état ci-dessous). Preuves n°5, 6
+et 9 de §6.P faites le même jour (plus bas).
 
 **Ce qui a été livré.**
 
@@ -1881,16 +1881,49 @@ vague 0 à la vague 5, après toutes les CRs. Un Secret absent ne retient plus
 les namespaces : l'opérateur le signale par `SecretUnavailable` sur le seul
 backend `authentik`.
 
-**Pour reprendre :**
+Après la synchro de `42bba270` : `openbao-spaces` `Synced`/`Healthy`,
+SecretStore et ExternalSecret en vague 5 et `Ready`.
 
-1. Vérifier, après la synchro de `42bba270`, que
-   `openbao-spaces` reste `Synced`/`Healthy`.
-2. Les preuves de §6.P :
-   - n°5 : parité du rendu ;
-   - n°6 : un humain, au travers du vrai login, dans `devenv`, `preprod`,
-     `prod` et `users`. Il faut que `*.weebo.poc` se résolve sur le poste ;
-     le kubeconfig OIDC en dépend aussi (`dex.weebo.poc`) ;
-   - n°9 : suppression d'une org `test`.
+**Preuves de §6.P** (2026-11-13, `bao` 2.7.1, `https://vault.weebo.poc`) :
+
+- **n°5, parité du rendu** : test
+  `the_weebo_layout_renders_the_terraform_org_policies` (weebo-openbao
+  `af1467a`, `crates/domain/src/policy.rs`). Le layout et les niveaux de
+  weebo-si, rendus case par case et mis bout à bout par rôle, donnent
+  exactement les 34 chemins et capacités de `vault_policy.org` développé
+  depuis `c4e62809^:2.terra/auth/terra-map/vault-spaces.tf`. Une case
+  modifiée (`dev` en `write` dans `preprod`) le fait échouer.
+- **n°6, un humain au travers du vrai login** : `batleforc-test`, membre de
+  `batleforc-org_dev` et de `test_dev` seulement (weebo-si `91f42a86`, retiré
+  par `01e641a0`), login OIDC `authentik` dans chaque namespace.
+  - `devenv` : policies `org_batleforc-org_dev`, `org_test_dev`. `kv put`
+    puis `get` de `batleforc-org/weebo-si/x` réussissent.
+  - `preprod` : mêmes policies. `put` répond 403. `get` du même chemin
+    répond 404 (« No value found ») et celui d'une autre org 403 : la
+    lecture est accordée, le chemin est vide, et ce compte ne peut pas
+    l'écrire. Écart au texte de n°6, qui attend un `get` réussi.
+  - `prod` : le login réussit avec la seule policy `default`, `get` répond
+    403.
+  - `users` : policies `default`, `user_space`. `kv put
+    batleforc-test/a` réussit, `kv get batleforc/a` répond 403.
+- **n°9, suppression** : CR `OpenbaoOrganization/test` appliquée hors git
+  (11 cases `Ready`), un secret écrit par le membre dans
+  `devenv/orgs/test/weebo-si/x`, puis `kubectl delete`. Finalizer libéré en
+  moins d'une seconde (Events `Deleted`, `Released`). Le **même** token,
+  émis à 15:00:47 avant la suppression de 15:03:39, a perdu `org_test_dev`
+  de ses `identity_policies`, son `get` sur `test/` répond 403, et
+  `batleforc-org/` reste lisible. Non observé en live : l'ordre alias avant
+  groupe (il faut un token qui lise `identity/`, couvert par le test
+  `cleanup_revokes_alias_group_policy`) et la présence des secrets de
+  `test/` pour le root.
+
+Reste du lab : `devenv/orgs/test/weebo-si/x` et
+`devenv/orgs/batleforc-org/weebo-si/x` (`a=b`). Ils ne s'effacent qu'avec un
+token root ou owner. Les tokens de la preuve sont révoqués.
+
+**Défaut relevé** : le message de l'Event `Deleted` répète les namespaces une
+fois par case (« devenv, preprod, recette, devenv, preprod, prod, … ») au
+lieu d'une fois chacun. À dédoublonner dans weebo-openbao.
 
 **Écarts déjà connus** par rapport à §4.1 :
 
