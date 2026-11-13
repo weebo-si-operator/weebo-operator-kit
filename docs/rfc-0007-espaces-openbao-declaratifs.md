@@ -1923,7 +1923,8 @@ token root ou owner. Les tokens de la preuve sont révoqués.
 
 **Défaut relevé** : le message de l'Event `Deleted` répète les namespaces une
 fois par case (« devenv, preprod, recette, devenv, preprod, prod, … ») au
-lieu d'une fois chacun. À dédoublonner dans weebo-openbao.
+lieu d'une fois chacun. Corrigé dans weebo-openbao `89bb047`, pas encore
+publié (v0.1.3 tourne sur le lab).
 
 **Écarts déjà connus** par rapport à §4.1 :
 
