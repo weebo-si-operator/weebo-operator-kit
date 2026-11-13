@@ -8,7 +8,7 @@
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée et pas encore vérifiée, écarts et point de reprise en §17 |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves de §6.P à faire, écarts et point de reprise en §17 |
 | Remplace   | — |
 | Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,spaces,forgejo}.tf`, `2.argo/helm/vault/{main,sub}` (opérateur, `OpenbaoInstance`, device d'audit), `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
@@ -1823,11 +1823,11 @@ relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
   `InstanceBindingChanged`, `TokenSecretNotAllowed`) ne servent pas dans
   weebo-openbao et restent à retirer.
 
-### 17.5 Phase 4 : poussée, pas encore vérifiée (point de reprise)
+### 17.5 Phase 4 : réconciliée, preuves à faire (point de reprise)
 
-Poussée dans weebo-si (`c4e62809`, branche `develop`). Le suivi a été
-interrompu avant la réconciliation. Rien de ce qui suit n'a encore été
-observé côté OpenBao.
+Poussée dans weebo-si (`c4e62809`, branche `develop`) le 2026-11-06, puis
+réconciliée sans intervention le 2026-11-13 (état ci-dessous). Les preuves de
+§6.P ne sont pas encore faites.
 
 **Ce qui a été livré.**
 
@@ -1862,21 +1862,34 @@ probables, **non vérifiées** :
   l'application `openbao` attend que l'`AuthentikInstance` porte le nouveau
   `pathGrants`.
 
+**État au 2026-11-13** (lu avec le kubeconfig à certificat de weebo-si,
+`0.config/kubeconfig.yaml`) :
+
+- ExternalSecret `openbao-oidc` : `SecretSynced`, `Ready`.
+- `openbao-spaces` : `Synced` et `Healthy`.
+- Les cinq `OpenbaoNamespace` et `OpenbaoOrganization/batleforc-org` :
+  `Ready`, raison `Reconciled`.
+
+La cause du blocage du 2026-11-06 n'est pas établie : le Secret s'est
+débloqué de lui-même, et il ne reste aucun Event. L'une des deux causes
+probables ci-dessus, résolue par le passage suivant du job ou de
+weebo-authentik, reste l'explication la plus simple.
+
+**Correction de conception** (weebo-si `42bba270`) : le
+SecretStore `cred-store` et l'ExternalSecret `openbao-oidc` passent de la
+vague 0 à la vague 5, après toutes les CRs. Un Secret absent ne retient plus
+les namespaces : l'opérateur le signale par `SecretUnavailable` sur le seul
+backend `authentik`.
+
 **Pour reprendre :**
 
-1. `kubectl -n weebo-openbao describe externalsecret openbao-oidc` : le
-   message dit si c'est le login (`auth-read`) ou la clé absente.
-2. `kubectl -n auth get authentikapplication openbao` et son `Ready`. Puis
-   les logs du job `terra-job-vault` pour `auth-read`.
-3. **Défaut de conception à corriger.** Le Secret ne devrait pas bloquer les
-   namespaces : l'opérateur sait déjà dire `SecretUnavailable` sur le seul
-   backend `authentik`. Sortir l'ExternalSecret des vagues, ou le mettre dans
-   une vague qui ne précède pas les CRs, puis resynchroniser
-   `openbao-spaces`.
-4. Puis les preuves de §6.P :
+1. Vérifier, après la synchro de `42bba270`, que
+   `openbao-spaces` reste `Synced`/`Healthy`.
+2. Les preuves de §6.P :
    - n°5 : parité du rendu ;
    - n°6 : un humain, au travers du vrai login, dans `devenv`, `preprod`,
-     `prod` et `users` ;
+     `prod` et `users`. Il faut que `*.weebo.poc` se résolve sur le poste ;
+     le kubeconfig OIDC en dépend aussi (`dex.weebo.poc`) ;
    - n°9 : suppression d'une org `test`.
 
 **Écarts déjà connus** par rapport à §4.1 :
