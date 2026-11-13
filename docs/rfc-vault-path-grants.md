@@ -154,6 +154,18 @@ spec:
   accident. Les segments vides, `.`, `..` et un `/` initial sont refusés,
   comme dans les chemins.
 
+- **Ajout (2026-11-14, RFC-0007 §17) : captures `{name}`.** Un motif de
+  namespace peut capturer une fois une partie du nom, `dev-ws-{user}`
+  (préfixe et suffixe littéraux, sans `*`, valeur non vide). Un segment de
+  chemin `{user}` ne couvre alors que la valeur capturée : `dev-ws-max`
+  écrit `max/forgejo-token`, pas `bob/forgejo-token`. Le nom est en
+  minuscules, chiffres et `_`. Un `{name}` de `paths` doit être capturé
+  par **chaque** motif de `namespaces` du grant, sinon `validate` refuse
+  le grant (un grant `clusterScoped` n'en a donc pas) ; à l'exécution, un
+  `{name}` non capturé ne couvre rien. Un `{name}` compte comme un segment
+  littéral pour la règle « tout le mount ». `PATH_PATTERN` réserve `{` et
+  `}` à ce segment entier.
+
 **Ce que `pathGrants` ne change pas :**
 
 - Les chemins **par défaut** (`<pathPrefix>/<ns>/<name>`) et la règle de

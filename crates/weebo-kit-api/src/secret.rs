@@ -63,8 +63,9 @@ pub struct SecretTarget {
 pub const VAULT_NAMESPACE_PATTERN: &str = r"^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$";
 
 /// A path pattern: segments separated by `/`, each a literal, `+` (any one
-/// segment) or, last only, `*` (one or more segments).
-pub const PATH_PATTERN: &str = r"^(?:(?:[^/*+]+|\+)/)*(?:[^/*+]+|\+|\*)$";
+/// segment), a `{name}` capture or, last only, `*` (one or more segments).
+pub const PATH_PATTERN: &str =
+    r"^(?:(?:[^/*+{}]+|\+|\{[a-z][a-z0-9_]*\})/)*(?:[^/*+{}]+|\+|\*|\{[a-z][a-z0-9_]*\})$";
 
 /// Bounds keeping the CEL rules' estimated cost within the apiserver's
 /// budget. The field embedding a list of grants must bound it too
@@ -173,9 +174,12 @@ pub struct VaultKubernetesAuth {
     "message": "a grant names namespaces or is clusterScoped, not both"
 }]))]
 pub struct VaultPathGrant {
-    /// Namespaces whose objects may write `paths`: exact names, `*`, or a
-    /// prefix glob such as `team-*`. `team-*` opens the paths to every
-    /// matching namespace.
+    /// Namespaces whose objects may write `paths`: exact names, `*`, a
+    /// prefix glob such as `team-*`, or a pattern capturing part of the
+    /// name once, such as `dev-ws-{user}`. `team-*` opens the paths to every
+    /// matching namespace; with `dev-ws-{user}`, a `{user}` path segment
+    /// matches only the captured value (`dev-ws-max` may write
+    /// `max/token`, not `bob/token`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[schemars(schema_with = "namespace_patterns")]
     pub namespaces: Vec<String>,
@@ -184,9 +188,11 @@ pub struct VaultPathGrant {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub cluster_scoped: bool,
     /// Path patterns under the mount, compared segment by segment: a
-    /// literal segment matches itself, `+` exactly one segment, and a last
-    /// `*` one or more. Each holds at least one literal segment, e.g.
-    /// `shared/auth`, `+/auth`, `platform/*`. Prefer exact paths where
+    /// literal segment matches itself, `+` exactly one segment, `{name}`
+    /// the value every namespace pattern of the grant captures as `name`,
+    /// and a last `*` one or more. Each holds at least one literal or
+    /// `{name}` segment, e.g. `shared/auth`, `+/auth`, `platform/*`,
+    /// `{user}/forgejo-token`. Prefer exact paths where
     /// values not written by the operator live: a covered object may take
     /// over a value no object owns yet.
     #[schemars(schema_with = "path_patterns")]

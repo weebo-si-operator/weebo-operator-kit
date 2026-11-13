@@ -37,7 +37,9 @@ fn schema_and_domain_accept_the_same_path_patterns() {
     let schema_accepts = |p: &str| {
         pattern.is_match(p) && rules.iter().all(|(negated, re)| re.is_match(p) != *negated)
     };
-    let namespaces = vec!["auth".to_string()];
+    // Captures `user`, so `{user}` segments are bound and only their form
+    // is tested here (binding: the domain's own tests).
+    let namespaces = vec!["auth-{user}".to_string()];
     for candidate in [
         "shared/auth",
         "a",
@@ -64,6 +66,17 @@ fn schema_and_domain_accept_the_same_path_patterns() {
         "a*",
         "b+/c",
         "a/b*",
+        "{user}/token",
+        "a/{user}/*",
+        "{user}",
+        "{user}/*",
+        "a{user}/b",
+        "{user}x/b",
+        "{User}/b",
+        "{}/b",
+        "{user/b",
+        "user}/b",
+        "a/{u-x}",
     ] {
         let paths = vec![candidate.to_string()];
         let grant = PathGrant {
