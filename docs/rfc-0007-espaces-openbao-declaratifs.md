@@ -8,7 +8,7 @@
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites ; phase 5 livrée, preuve n°7 faite, écarts et point de reprise en §17 |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites ; phase 5 livrée, preuve n°7 faite ; phase 6 livrée sauf l'envoi des alertes, preuves n°11 et 12 faites, écarts et point de reprise en §17 |
 | Remplace   | — |
 | Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,spaces,forgejo}.tf`, `2.argo/helm/vault/{main,sub}` (opérateur, `OpenbaoInstance`, device d'audit), `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
@@ -1732,7 +1732,7 @@ contrôle de §7) arrive avant la première CR (la surface), et la sonde de
 
 ---
 
-## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 5
+## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 6
 
 Phases 0 à 3 livrées le 2026-11-06. Les sections 1 à 16 restent le texte
 relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
@@ -1978,8 +1978,10 @@ pod) :
   (`status.roles`), pas `grant_<nom>` (`status.role`, §6.3 et §6.4). Le
   premier login au nom du texte a répondu « invalid role name ». Le
   consommateur doit nommer le rôle par la position du sujet dans la liste,
-  qui change si on réordonne les sujets. À trancher : garder l'index (et le
-  documenter), ou un nom stable par sujet.
+  qui change si on réordonne les sujets. **Tranché par Max (2026-11-13) :
+  on garde l'index**, documenté dans la description du CRD (weebo-openbao
+  `68c3e0c`), le chart `spaces` et `Infra/openbao.mdx` : un sujet nouveau
+  s'ajoute à la fin, le rôle se lit dans `status.roles`.
 - **De bout en bout par l'opérateur : non fait.** Aucun objet n'écrit encore
   dans `users`. Les jetons des workspaces Che (`dev-ws-*/che-workspace`)
   vont dans un Secret Kubernetes, sans `secretTargets`. Un
@@ -1994,7 +1996,74 @@ pod) :
 - **Docs.** Les deux champs apparaissent dans la page CRD générée de
   `ForgejoInstance` ; l'exemple de §6.4 n'est écrit nulle part. Il relève de
   la phase 6 (`Infra/openbao.mdx`).
-- **Bases d'image.** Les six opérateurs épinglent le même digest de
-  `core-runtime` : leur prochaine publication échouera au même contrôle tant
-  qu'il n'est pas monté.
+- **Bases d'image.** Les six opérateurs épinglaient le même digest de
+  `core-runtime`. Monté partout le 2026-11-13 : weebo-angos `6c50903`,
+  weebo-authentik `8484ad0`, weebo-batlehub `10b5d6d` (après `93860c7`,
+  ammonia 4.2.5 pour RUSTSEC-2026-0533, qui bloquait son audit), weebo-forgejo
+  `7f36144`, weebo-stalwart `edb3d73`, le template du kit `b42876f`.
+
+### 17.7 Phase 6 : doc, observabilité, budget (2026-11-13)
+
+**Livré.**
+
+| Où | Quoi |
+| --- | --- |
+| weebo-si `fb9e4fd6` | `0.docs/content/docs/Infra/openbao.mdx` : qui vit où, le modèle humain (table du layout, ajouter une org, donner un rôle), le login par namespace (CLI et UI), « donner un accès à un système » (grants, nom des rôles, l'exemple forgejo, `{sa.namespace}`), les modes de défaillance |
+| weebo-si `26fd86c7` | Tableau de bord ClickStack `weebo-openbao` : les cinq conditions de §10.1 en tuiles, plus leader, durée des reconciles, Events `Warning` et `Deleted`, le pod de l'opérateur. Les métriques arrivent déjà (annotations de scrape de l'Application) |
+| weebo-openbao `02c441b` | Budget `weebo-kit-perf` hebdomadaire (`task perf`, `.github/workflows/perf.yml`) : binaire de release contre envtest et un OpenBao factice en HTTPS, 100 organisations sur le layout `weebo` |
+| weebo-openbao `c9d40da` | §6.P n°11 dans `test:live-openbao` |
+
+**Mesures du budget** (`Budget::small_cluster()`, tout passe) : mémoire au
+repos 27,8 Mio au plus, croissance 6,3 % entre les fenêtres de repos, CPU au
+repos 0,33 m, 7 à 9 requêtes apiserver par organisation, convergence de 100
+organisations en 2,6 s. Par organisation : 22 lectures et 33 écritures à la
+création, **22 lectures et 0 écriture en régime établi** (une resynchro
+forcée), 3 écritures pour un renommage d'alias, 33 suppressions. Les
+chiffres de §10.3 tiennent.
+
+**§6.P n°11, scellé** (OpenBao 2.7.1 jetable) : un namespace, une
+organisation et un grant en place, `bao operator seal` ; les trois reconciles
+s'arrêtent sur `VaultSealed` sans aucune écriture. Après `unseal`, le même
+token les repasse en `Reconciled`, sans écriture. Non couvert par ce test :
+le délai « en moins d'un cycle » et le log `warn` par CR et par backoff, qui
+relèvent du contrôleur.
+
+**§6.P n°12, calme** (lab) : weebo-openbao v0.1.5 démarré à 15:45:55Z ; à
+16:47:10Z, 164 reconciles réussis (63 `OpenbaoNamespace`, 51 niveaux, 13
+instances, 13 grants, 12 organisations, 12 layouts), aucun redémarrage, et
+`weebo_openbao_remote_writes_total` absent : aucune écriture depuis le
+démarrage, `client_secret` compris.
+
+**Écarts au texte.**
+
+- **Métriques.** Le compteur est celui du kit,
+  `weebo_openbao_remote_writes_total{kind, cause}` (`cause` : `created`,
+  `drift`, `deleted`), et non `vault_writes_total{vault_namespace, object,
+  action}` (§10.1). Les alertes sont transposées : `object="auth"` devient
+  les écritures de `kind="OpenbaoNamespace"`, `action="delete"` devient
+  `cause="deleted"`, la boucle de réécriture des écritures `drift` qui ne
+  cessent pas. « `Ready=False` depuis 30 min » n'a pas de métrique : il se lit
+  en `result="error"` à chaque essai, et la CR en cause dans les Events
+  `Warning`.
+- **Les alertes ne partent pas.** Rien dans weebo-si ne provisionne d'alerte
+  HyperDX ni de canal de notification (le job de provisionnement retire
+  `alerts` des tableaux). Les conditions se lisent sur le tableau de bord ;
+  les envoyer demande de choisir un canal, pour tous les opérateurs à la
+  fois.
+- **Budget.** OpenBao y est factice : sa latence et son stockage ne sont pas
+  mesurés, et « zéro écriture » y vaut ce que vaut le faux. Le réel est
+  couvert par `test:live-openbao` (« a second pass writes nothing ») et par
+  n°12. Le workflow est local et non le `perf.yml` réutilisable du kit, qui
+  régénère un site de docs que weebo-openbao n'a pas encore.
+
+**Reste avant `Implemented`.**
+
+1. Un canal pour les alertes de §10.1 (décision d'infra, commune aux
+   opérateurs).
+2. Les jetons Che dans OpenBao, avec la question des `pathGrants` de forgejo
+   (§17.6).
+3. Effacer `devenv/orgs/test/weebo-si/x` et
+   `devenv/orgs/batleforc-org/weebo-si/x` (token root ou owner), et constater
+   au passage que root voit encore les secrets de `test/` (n°9).
+4. Reporter dans le texte les points de §17.4 et les écarts de §17.5 à §17.7.
 
