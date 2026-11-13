@@ -8,7 +8,7 @@
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites, écarts et point de reprise en §17 |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites ; phase 5 livrée, preuve n°7 faite, écarts et point de reprise en §17 |
 | Remplace   | — |
 | Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,spaces,forgejo}.tf`, `2.argo/helm/vault/{main,sub}` (opérateur, `OpenbaoInstance`, device d'audit), `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
@@ -1732,7 +1732,7 @@ contrôle de §7) arrive avant la première CR (la surface), et la sonde de
 
 ---
 
-## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 4
+## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 5
 
 Phases 0 à 3 livrées le 2026-11-06. Les sections 1 à 16 restent le texte
 relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
@@ -1923,16 +1923,78 @@ token root ou owner. Les tokens de la preuve sont révoqués.
 
 **Défaut relevé** : le message de l'Event `Deleted` répète les namespaces une
 fois par case (« devenv, preprod, recette, devenv, preprod, prod, … ») au
-lieu d'une fois chacun. Corrigé dans weebo-openbao `89bb047`, pas encore
-publié (v0.1.3 tourne sur le lab).
+lieu d'une fois chacun. Corrigé dans weebo-openbao `89bb047`, publié en
+v0.1.5 (§17.6).
 
 **Écarts déjà connus** par rapport à §4.1 :
 
 - L'hôte est `vault.weebo.poc` et non `openbao.weebo.fr`, et le
   `discoveryUrl` est `https://auth.weebo.poc/application/o/openbao/`.
-- Pas encore de niveau `token-writer` : il sert aux grants, en phase 5.
+- Le niveau `token-writer` est arrivé en phase 5 (§17.6).
 - Le stash `stash@{0}` de weebo-si (WIP de Max) recoupe ces fichiers : les
   groupes `batleforc-org_*`, `additionalMounts` de forgejo et `vault.tf`.
-  Les groupes sont faits ici. Le reste relève de la phase 5, et un
-  `stash pop` entrera en conflit sur `auth/sub/values.yaml`.
+  Tout y est fait ou abandonné (§17.6) : il peut être jeté, et un
+  `stash pop` entrerait en conflit sur `auth/sub/values.yaml`.
+
+### 17.6 Phase 5 : modèle machine (2026-11-13)
+
+**Livré** dans weebo-si (`develop`) :
+
+| Où | Quoi |
+| --- | --- |
+| `2.argo/helm/vault/spaces/values.yaml` | Niveau `token-writer` (data et metadata `create, read, update, delete`, pas de `list`). Liste `grants` |
+| `2.argo/helm/vault/spaces/templates/grants.yaml` | Un `OpenbaoAccessGrant` par entrée de `grants`, vague 4. `forgejo-user-tokens` : namespace `users`, sujet `weebo-forgejo/weebo-forgejo`, `users` `+/forgejo-token` en `token-writer` (`2a4e6ea5`) |
+| `2.argo/helm/forgejo` | `operator.vault.additionalMounts` rendu dans la `ForgejoInstance` : mount `users`, `vaultNamespace: users`, login `kubernetes` au rôle `grant_forgejo-user-tokens_0`, `pathGrants` `[forgejo]` `+/forgejo-token` (`2a4e6ea5`, `40e1bf15`). weebo-forgejo v0.9.0 était déjà sur le kit v0.29.0, qui porte `vaultNamespace` et `auth` |
+| weebo-openbao | v0.1.5, déployée sur le lab (weebo-si `3ca4c370`, toutes les CRs restent `Ready`) : le correctif de l'Event `Deleted` (`89bb047`) et la base `core-runtime` à jour (`93c5056`). La publication de v0.1.4 avait échoué au contrôle grype (`--fail-on high`, CVE-2026-102010 dans `libgcc` 16.2.1-3.1) ; le tag v0.1.4 reste, sans image |
+
+**Retrait de `user_space` du rôle `reader` du root : sans objet.** Dans git,
+`reader` a toujours `token_policies = ["reader"]` (`vault.tf`). L'ajout de
+`user_space` n'existe que dans le stash et n'a jamais été appliqué, et §6.P
+n°1 n'a trouvé aucune policy `user_space` dans le root.
+
+**§6.P n°7** (2026-11-13, `bao` 2.7.1, jetons de ServiceAccount obtenus par
+`kubectl create token`, ce qu'OpenBao voit est le même JWT que depuis le
+pod) :
+
+- `forgejo-user-tokens` : le ServiceAccount `weebo-forgejo` se connecte dans
+  `users` au rôle `grant_forgejo-user-tokens_0` (policies `default`,
+  `grant_forgejo-user-tokens`, TTL 15 min). `kv put` puis `get` de
+  `alice/forgejo-token` réussissent ; `put`, `get` et `list` de
+  `alice/autre` répondent 403. Le même login avec le ServiceAccount
+  `default` répond 403 « service account name not authorized ».
+- `repo-workloads-read-own`, appliqué hors git le temps de la preuve avec un
+  namespace Kubernetes `weebo-si` temporaire (supprimés ensuite, finalizer
+  libéré) : le ServiceAccount `default` de `weebo-si` lit
+  `devenv/orgs/batleforc-org/weebo-si/x`, et reçoit 403 sur
+  `batleforc-org/autre/x` et `batleforc-org/weebo-forgejo/x`. C'est OpenBao
+  qui a rendu `{sa.namespace}`.
+- Avec un token `weebo_openbao_operator` (rôle `weebo-openbao` du root),
+  `write -namespace=devenv auth/kubernetes/role/grant_x
+  token_policies=org_a_owner` répond 403, et le rôle n'existe pas ensuite.
+
+**Écarts au texte.**
+
+- **Un rôle par sujet.** L'opérateur crée `grant_<nom>_<index>`
+  (`status.roles`), pas `grant_<nom>` (`status.role`, §6.3 et §6.4). Le
+  premier login au nom du texte a répondu « invalid role name ». Le
+  consommateur doit nommer le rôle par la position du sujet dans la liste,
+  qui change si on réordonne les sujets. À trancher : garder l'index (et le
+  documenter), ou un nom stable par sujet.
+- **De bout en bout par l'opérateur : non fait.** Aucun objet n'écrit encore
+  dans `users`. Les jetons des workspaces Che (`dev-ws-*/che-workspace`)
+  vont dans un Secret Kubernetes, sans `secretTargets`. Un
+  `ForgejoAccessToken` d'essai dans `forgejo` pour `batleforc` est refusé
+  par le webhook de weebo-forgejo (un site admin demande une
+  `ForgejoNamespacePolicy`), refus voulu.
+- **`pathGrants` de forgejo.** `[forgejo]`, repris du stash, ne couvre pas
+  les CRs des workspaces (`dev-ws-*`). `dev-ws-*` ouvrirait
+  `<autre>/forgejo-token` à tout `ForgejoAccessToken` d'un workspace : le
+  kit ne sait pas lier le namespace `dev-ws-<user>` au chemin `<user>/`.
+  À trancher avec le passage des jetons Che dans OpenBao.
+- **Docs.** Les deux champs apparaissent dans la page CRD générée de
+  `ForgejoInstance` ; l'exemple de §6.4 n'est écrit nulle part. Il relève de
+  la phase 6 (`Infra/openbao.mdx`).
+- **Bases d'image.** Les six opérateurs épinglent le même digest de
+  `core-runtime` : leur prochaine publication échouera au même contrôle tant
+  qu'il n'est pas monté.
 
