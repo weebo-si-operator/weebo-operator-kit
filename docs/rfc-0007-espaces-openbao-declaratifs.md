@@ -1914,12 +1914,14 @@ SecretStore et ExternalSecret en vague 5 et `Ready`.
   de ses `identity_policies`, son `get` sur `test/` répond 403, et
   `batleforc-org/` reste lisible. Non observé en live : l'ordre alias avant
   groupe (il faut un token qui lise `identity/`, couvert par le test
-  `cleanup_revokes_alias_group_policy`) et la présence des secrets de
-  `test/` pour le root.
+  `cleanup_revokes_alias_group_policy`). Observé le 2026-11-14 avec un
+  login root (`weebo_admin`) : `devenv/orgs/test/weebo-si/x` reste lisible
+  (version 1, clé `a`), les secrets survivent à la suppression de l'org
+  comme prévu.
 
-Reste du lab : `devenv/orgs/test/weebo-si/x` et
-`devenv/orgs/batleforc-org/weebo-si/x` (`a=b`). Ils ne s'effacent qu'avec un
-token root ou owner. Les tokens de la preuve sont révoqués.
+Lab nettoyé le 2026-11-14 : `devenv/orgs/test/weebo-si/x` et
+`devenv/orgs/batleforc-org/weebo-si/x` effacés (`kv metadata delete`, token
+root révoqué ensuite). Les tokens de la preuve sont révoqués.
 
 **Défaut relevé** : le message de l'Event `Deleted` répète les namespaces une
 fois par case (« devenv, preprod, recette, devenv, preprod, prod, … ») au
@@ -2062,8 +2064,5 @@ démarrage, `client_secret` compris.
    opérateurs).
 2. Les jetons Che dans OpenBao, avec la question des `pathGrants` de forgejo
    (§17.6).
-3. Effacer `devenv/orgs/test/weebo-si/x` et
-   `devenv/orgs/batleforc-org/weebo-si/x` (token root ou owner), et constater
-   au passage que root voit encore les secrets de `test/` (n°9).
-4. Reporter dans le texte les points de §17.4 et les écarts de §17.5 à §17.7.
+3. Reporter dans le texte les points de §17.4 et les écarts de §17.5 à §17.7.
 
