@@ -2,6 +2,23 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.31.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/f9936af61d2a455c7a3452578bc3c87c90620643..v0.31.0) - 2026-11-13
+#### Features
+- (**vault**) {name} captures in pathGrants bind a path to the writer's namespace - ([794a2b7](https://github.com/weebo-si-operator/weebo-operator-kit/commit/794a2b70fe98f1098efa0786c5032ca11a3d0b29)) - Max Batleforc, Claude Opus 5.5
+#### Bug Fixes
+- (**template**) core-runtime base with libgcc 16.2.1-3.2 - ([b42876f](https://github.com/weebo-si-operator/weebo-operator-kit/commit/b42876f85e13ad2688ea1dd8bd75a352e7235c78)) - Max Batleforc, Claude Opus 5.5
+#### Documentation
+- (**rfc-0007**) §6.P n°9 root read observed, lab test secrets erased - ([2f42121](https://github.com/weebo-si-operator/weebo-operator-kit/commit/2f42121a45e8d73d637871c1621720f88fd0bb04)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) phase 6, doc, dashboard, perf budget, §6.P n°11 and 12 - ([9c7a4aa](https://github.com/weebo-si-operator/weebo-operator-kit/commit/9c7a4aaf5e9d43965f7ec5d88ca2508b5d309d6d)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) phase 5, machine model shipped and §6.P n°7 proven - ([dae574f](https://github.com/weebo-si-operator/weebo-operator-kit/commit/dae574ff173ddc97f11b7cfeeec30bd01d312e41)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) the Deleted Event fix, weebo-openbao 89bb047 - ([0ab9223](https://github.com/weebo-si-operator/weebo-operator-kit/commit/0ab922395ce91ce6123ea353f5cbd465d0040adb)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) phase 4 proven, §6.P n°5, 6 and 9 on the lab - ([8637935](https://github.com/weebo-si-operator/weebo-operator-kit/commit/86379356b2b94c406fc7d698e0776d8aef62469b)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) phase 4 reconciled, wave fix, proofs left - ([22f14c6](https://github.com/weebo-si-operator/weebo-operator-kit/commit/22f14c6eb32bff9d6a441e1ad59f339572f57982)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) phase 4 pushed, not yet verified: where to resume - ([b8b906e](https://github.com/weebo-si-operator/weebo-operator-kit/commit/b8b906e342d1c91425486a3725a7f7eb8ca898ee)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) revision against the tree, phases 0 to 3 - ([f9936af](https://github.com/weebo-si-operator/weebo-operator-kit/commit/f9936af61d2a455c7a3452578bc3c87c90620643)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.30.1](https://github.com/weebo-si-operator/weebo-operator-kit/compare/bfbcbf13609fdcfe81fbfedb13dbec9b6655216a..v0.30.1) - 2026-11-06
 #### Bug Fixes
 - (**template**) image and links under weebo-si-operator, no stale CRD - ([bfbcbf1](https://github.com/weebo-si-operator/weebo-operator-kit/commit/bfbcbf13609fdcfe81fbfedb13dbec9b6655216a)) - Max Batleforc, Claude Opus 5.5
