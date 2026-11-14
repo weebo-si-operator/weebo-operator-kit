@@ -2,15 +2,15 @@
 
 | Champ      | Valeur |
 | ---------- | ------ |
-| Statut     | In review |
+| Statut     | Accepted (implémentée ; `Implemented` après les deux observations de §17.3) |
 | Court      | Espaces OpenBao déclaratifs |
 | Tranche    | Qui crée les mounts, policies, groupes et alias des espaces humains d'OpenBao, dans quels namespaces OpenBao, avec quels droits Vault, sans lier l'opérateur à un fournisseur d'identité |
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites ; phase 5 livrée, preuve n°7 faite ; phase 6 livrée sauf l'envoi des alertes, preuves n°11 et 12 faites, écarts et point de reprise en §17 |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites ; phase 5 livrée, preuve n°7 faite ; phase 6 livrée sauf l'envoi des alertes, preuves n°11 et 12 faites ; 2026-11-14 : alertes vers ntfy, jetons Che dans `users` (captures `{name}` des `pathGrants`, kit v0.31.0), écarts de §17 reportés dans le texte, §17 devient le journal |
 | Remplace   | — |
-| Touche     | `weebo-openbao` (nouveau dépôt, créé dans l'org `weebo-si-operator`), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`), weebo-forgejo (`additionalMounts`), dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,spaces,forgejo}.tf`, `2.argo/helm/vault/{main,sub}` (opérateur, `OpenbaoInstance`, device d'audit), `2.terra/auth/terra-map/{vault,vault-spaces}.tf`, les deux `kustomization.yaml`, le provider OIDC du fournisseur d'identité (redirect URIs), `2.argo/helm/vault/sub/values.yaml` (NetworkPolicy), `2.argo/app/values.yaml` (AppProject), un chart à ajouter sous `2.argo/helm`, `0.docs/content/docs/Infra/openbao.mdx` |
+| Touche     | `weebo-openbao` (nouveau dépôt, org `weebo-si-operator`, v0.1.0 à v0.1.5), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`, v0.29.0 ; `clusterSecrets`/`releaseSecrets` du chart, v0.30.0 ; captures `{name}` des `pathGrants`, v0.31.0), weebo-forgejo (`additionalMounts`, v0.10.0). Dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,auth-base}.tf`, `2.terra/vault/kustomization.yaml`, `2.terra/auth/terra-map/vault.tf`, `spaces.tf` et `vault-spaces.tf` supprimés ; `2.argo/helm/vault/{main,sub,spaces}` (opérateur, `OpenbaoInstance`, device d'audit, NetworkPolicy, les CRs des espaces) ; `2.argo/helm/auth/{main,sub}/values.yaml` (client OIDC `openbao`, groupes) ; `2.argo/helm/forgejo` et `2.helm/user-app` (mount `users`, jetons Che) ; `2.argo/helm/monitoring` (tableau de bord, alertes ntfy) ; `0.task/vault.yaml` (`vault:ntfy`) ; `2.argo/app/values.yaml` (AppProject) ; `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
 
 > Document de référence (~14 000 mots avec le code) : §1 à §3, §7.1 et §15
@@ -247,14 +247,14 @@ spec:
   auth:                           # un backend par entrée, un seul champ de type
     - name: authentik
       oidc:
-        discoveryUrl: https://auth.weebo.fr/application/o/openbao/
+        discoveryUrl: https://auth.weebo.poc/application/o/openbao/
         clientId: openbao
         clientSecretRef: { name: openbao-oidc, key: client-secret }
         scopes: [openid, profile, groups]
         userClaim: sub
         groupsClaim: groups
         redirectUris:
-          - https://openbao.weebo.fr/ui/vault/auth/authentik/oidc/callback?namespace=prod
+          - https://vault.weebo.poc/ui/vault/auth/authentik/oidc/callback?namespace=prod
           - http://localhost:8250/oidc/callback
     - name: kubernetes
       kubernetes: {}              # défaut : l'apiserver du cluster, CA et jeton du pod OpenBao
@@ -391,7 +391,8 @@ spec:
   `default` a `token_policies` vide, sauf `user_space` dans un namespace
   `users` : un login sans groupe connu n'ouvre rien. Un backend `kubernetes`
   n'a aucun rôle tant qu'aucun grant ne le nomme. Les tokens humains durent
-  1 h (8 h au plus), ceux des machines 15 min (1 h au plus).
+  1 h (8 h au plus), ceux des machines `tokenTtlSeconds` du grant (900 par
+  défaut), sans renouvellement au-delà : le login suivant en refait un.
 
 ### 4.2 Règles de comportement
 
@@ -666,9 +667,11 @@ rôle de l'opérateur, dans le root, sans lire d'accesseur. Le backend OIDC
 ### 6.1 La policy de l'opérateur (Terraform, à vie)
 
 L'opérateur ne peut pas s'accorder ses propres droits, et c'est le but. Sa
-policy reste dans Terraform, dans `2.terra/vault/terra-map/auth-base.tf` à
-côté de son rôle, et ne dépend plus de `2.terra/auth`. `vault-spaces.tf` et
-`spaces.tf` disparaissent :
+policy reste dans Terraform, dans `2.terra/vault/terra-map/weebo-openbao.tf`
+avec son rôle (un fichier par consommateur, comme `forgejo.tf` ou
+`angos.tf`), et ne dépend plus de `2.terra/auth`. `vault-spaces.tf` et
+`spaces.tf` disparaissent. Rendue pour les cinq namespaces, elle compte 85
+chemins :
 
 ```hcl
 locals {
@@ -844,17 +847,23 @@ path "orgs/metadata/batleforc-org/{{identity.entity.aliases.auth_kubernetes_1a2b
 ```
 
 ```text
-auth/kubernetes/role/grant_repo-workloads-read-own
+auth/kubernetes/role/grant_repo-workloads-read-own_0
   bound_service_account_names      = ["*"]
   bound_service_account_namespaces = ["*"]
   token_policies                   = ["grant_repo-workloads-read-own"]
-  token_ttl = 900, token_max_ttl = 3600
+  token_ttl = 900, token_max_ttl = 900   # tokenTtlSeconds du grant
 ```
 
-Le nom du rôle est `grant_<metadata.name>`, et c'est lui que l'opérateur
-consommateur déclare dans son `additionalMounts[].auth` (§6.4). Le status du
-grant le répète, avec le namespace et le backend, pour qu'on le copie sans le
-deviner.
+Le rôle ne pose pas d'`audience` : OpenBao accepte le jeton de ServiceAccount
+projeté par défaut (audience de l'apiserver), celui que le pod monte déjà.
+Borner l'audience demanderait un volume projeté par consommateur, sans rien
+gagner contre un ServiceAccount déjà autorisé par nom et namespace.
+
+Un rôle par sujet, `grant_<metadata.name>_<index>` (OpenBao compare nom et
+namespace du ServiceAccount séparément, décision 18), et c'est lui que
+l'opérateur consommateur déclare dans son `additionalMounts[].auth` (§6.4).
+`status.roles` les liste dans l'ordre des sujets, pour qu'on les copie sans
+les deviner.
 
 ### 6.3 Status et conditions
 
@@ -864,53 +873,87 @@ status:                         # OpenbaoOrganization
   conditions:
     - type: Ready
       status: "True"
-      reason: Synced
-  grants:
+      reason: Reconciled
+  cells:                        # ce que l'org a écrit : la passe suivante et le finalizer retirent exactement ça
     - namespace: preprod
       role: dev
       policy: org_batleforc-org_dev
-      groupId: 4f1c…            # ID OpenBao, stable
-      aliases: [{ auth: authentik, id: 9a07…, name: batleforc-org_dev }]
+      groups:                   # un groupe externe par backend OIDC du namespace
+        - { backend: authentik, name: batleforc-org_dev, id: 4f1c…, aliasId: 9a07… }
 ```
 
 ```yaml
 status:                         # OpenbaoAccessGrant
-  conditions: [{ type: Ready, status: "True", reason: Synced }]
-  namespace: users
-  auth: kubernetes
-  role: grant_forgejo-user-tokens   # ce que le consommateur met dans additionalMounts[].auth
+  conditions: [{ type: Ready, status: "True", reason: Reconciled }]
   policy: grant_forgejo-user-tokens
-  organizations: []                 # orgs effectivement dépliées pour {org}
+  roles: [grant_forgejo-user-tokens_0]   # un par sujet, dans l'ordre de subjects
 ```
 
-Raisons (`reason_codes!` du kit, une par variante, avec sa doc qui part dans le
-site) : `Synced`, `VaultUnavailable`, `VaultSealed`, `VaultAuthFailed`,
-`PermissionDenied`, `OutOfBounds`, `NotOwned`, `Conflict`, `AliasConflict`,
-`MountTypeMismatch`, `AuthConfigRejected`, `SecretUnavailable`,
-`NamespaceNotReady`, `LevelNotFound`, `MountNotDeclared`, `LayoutNotReady`,
-`DisruptiveChangeBlocked`. Advisories : `NamespaceOrphaned`, `MountOrphaned`,
-`AuthOrphaned`, `BroadGrant`, `UnknownOrganization`, `LevelChanged`,
-`DriftCorrected`. `PermissionDenied` (un 403
-avec un token valide, distingué par `token_is_stale` du kit) n'est jamais
-réessayé en boucle serrée. Il veut dire que la policy de bootstrap et `bounds`
-ne sont plus d'accord.
+Le consommateur copie son rôle depuis `status.roles` : un rôle par sujet,
+`grant_<nom>_<index>`, l'index étant la position du sujet dans `subjects`
+(décision 18). Un sujet nouveau s'ajoute à la fin, sinon les rôles des
+suivants changent de nom.
 
-Un `OpenbaoNamespace` porte `status.mounts[]`,
-`status.auth[] { name, type, accessor, clientSecretDigest }`,
-`status.orphanedMounts[]` et `status.orphanedAuth[]`. Le layout porte
-`status.orphanedNamespaces[]` (namespaces que ses cellules visaient et qui
-n'ont plus d'`OpenbaoNamespace`).
+Un `OpenbaoNamespace` porte `status.auth[] { name, kind, accessor,
+clientSecretDigest }`, `status.orphanedMounts[]`, `status.orphanedAuth[]` et
+`status.leftOver[]` (policies et groupes marqués pour une org ou un grant
+disparus, décision 20). Les autres kinds ne portent que les conditions.
+
+`kubectl get` affiche `Ready` et `Reason` sur tous les kinds sauf
+`OpenbaoAccessLevel` (qui montre `Data` et `Metadata`, il n'a pas de
+reconcile propre), plus `Address` sur l'instance, `Types` sur un namespace,
+`Name` sur une organisation et `Namespace` sur un grant.
+
+Raisons (`ReasonCode`, `crates/domain/src/error.rs` de weebo-openbao, une par
+variante, avec sa doc qui part dans le site). Un changement de `Ready` donne
+un Event, `Normal` vers `True`, `Warning` vers `False` (kit,
+`conditions.rs`) ; une erreur qui interrompt un reconcile donne un `Warning`.
+
+| Raison | Ready | Event | Remède |
+| --- | --- | --- | --- |
+| `Reconciled` | True | Normal | — |
+| `InstanceNotFound` | False | Warning | créer l'`OpenbaoInstance` nommée, ou corriger `instanceRef` |
+| `TokenSecretMissing` | False | Warning | créer le Secret de `tokenSecretRef` ou sa clé |
+| `InvalidSpec` | False | Warning | corriger la CR (une `address` invalide…) : seul un changement de spec l'efface |
+| `InstanceUnreachable` | False | Warning | réseau vers OpenBao (NetworkPolicy, Service) ; réessayé |
+| `InstanceUnauthorized` | False | Warning | le login de l'opérateur est refusé : rôle `weebo-openbao` du root, Terraform |
+| `RemoteError` | False | Warning | erreur inattendue d'OpenBao, le message la cite ; réessayé |
+| `VaultSealed` | False | Warning | desceller OpenBao ; rien n'est écrit entre-temps (§6.P n°11) |
+| `PermissionDenied` | False | Warning | la policy de bootstrap (§6.1) et `bounds` divergent : les réaligner, en Terraform |
+| `OutOfBounds` | False | Warning | ajouter le namespace aux `bounds` **et** à la policy de §6.1, ou retirer la CR |
+| `MountTypeMismatch` | False | Warning | un mount ou un backend du même nom et d'un autre type existe : le retirer à la main |
+| `SecretUnavailable` | False | Warning | le Secret de `clientSecretRef` manque dans `weebo-openbao` (ExternalSecret `openbao-oidc`) ; seul ce backend attend |
+| `AuthConfigRejected` | False | Warning | OpenBao refuse la config OIDC (`discoveryUrl` injoignable…) ; le backend garde la précédente |
+| `NotOwned` | False | Warning | un objet du même nom existe sans la marque `managed-by` : le renommer ou l'adopter à la main |
+| `LevelNotFound` | False | Warning | créer l'`OpenbaoAccessLevel` cité ; la policy reste en l'état |
+| `NamespaceNotReady` | False | Warning | l'`OpenbaoNamespace` visé est absent, pas prêt ou sans le type de mount voulu |
+| `DisruptiveChangeBlocked` | False | Warning | poser `openbao.weebo.io/allow-disruptive-update: "true"`, synchroniser, puis le retirer |
+| `LayoutNotFound` | False | Warning | créer le layout de `layoutRef` |
+| `InUse` | False | Warning | la suppression attend que plus rien ne cite l'objet (ou `force-orphan`) |
+| `KubernetesApiError` | False | Warning | appel à l'apiserver échoué ; réessayé |
+| `LeavesWatchScope` | — | — | refus d'admission : remettre le label du sélecteur |
+| `MountOrphaned`, `AuthOrphaned`, `LeftOver` | True (advisory) | — | objets laissés en place ; `leftOver` se retire sous `allow-disruptive-update` |
+| `Created`, `DriftCorrected`, `Deleted`, `Released` | — | Normal | Events seuls : un `DriftCorrected` qui revient à chaque passe sur le même champ est un bug de comparaison |
+
+`PermissionDenied` (un 403 avec un token valide) n'est jamais réessayé en
+boucle serrée. Écarts au premier jet de cette liste, qui citait `Synced`,
+`Conflict`, `BroadGrant`, `LevelChanged`… : les codes sont ceux de l'enum
+livrée, `DriftCorrected` est un Event `Normal` et non un `Warning` (§10.1),
+et quatre codes du template sans usage ont été retirés (weebo-openbao
+`4dfa0ab`).
 
 ### 6.4 Le modèle machine : un système qui écrit dans les espaces
 
 Un système (weebo-forgejo, weebo-batlehub, weebo-angos, weebo-authentik, une
 CI) reçoit un accès par un `OpenbaoAccessGrant`, et s'en sert en se
-connectant **dans le namespace**, avec le rôle `grant_<nom>` du backend
-`kubernetes`. Rien ne passe par le root, ni par Terraform.
+connectant **dans le namespace**, avec le rôle `grant_<nom>_<index>` de son
+sujet, sur le backend `kubernetes`. Rien ne passe par le root, ni par
+Terraform.
 
-Exemple, l'écrivain forgejo d'aujourd'hui (`forgejo-user-tokens`, §4.1). Côté
-weebo-forgejo, une seule entrée de plus dans sa CR d'instance, avec les deux
-champs que le kit gagne :
+Exemple, l'écrivain forgejo (`forgejo-user-tokens`, §4.1), tel que livré
+(weebo-si `2.argo/helm/forgejo/values.yaml`). Côté weebo-forgejo, une seule
+entrée de plus dans sa CR d'instance, avec les deux champs que le kit gagne
+(`vaultNamespace`, `auth`, kit v0.29.0) :
 
 ```yaml
 secretStore:
@@ -918,13 +961,25 @@ secretStore:
     additionalMounts:
       - mount: users
         vaultNamespace: users
-        auth: { kubernetes: { mount: kubernetes, role: grant_forgejo-user-tokens } }
-        pathGrants: [{ namespaces: ["*"], paths: ["+/forgejo-token"] }]
+        auth: { kubernetes: { mount: kubernetes, role: grant_forgejo-user-tokens_0 } }
+        pathGrants:
+          - namespaces: [forgejo]
+            paths: ["+/forgejo-token"]
+          - namespaces: ["dev-ws-{user}"]          # un workspace Che
+            paths: ["{user}/forgejo-token"]        # le sien, pas celui d'un autre
 ```
+
+Le jeton Forgejo d'un workspace Che (`ForgejoAccessToken/che-workspace` dans
+`dev-ws-<username>`, `2.helm/user-app`) va dans le Secret que lit Che **et**
+dans `users/<username>/forgejo-token`. `dev-ws-*` seul aurait ouvert à tout
+workspace le jeton de tous les autres : le motif `dev-ws-{user}` capture le
+nom, et le segment `{user}` du chemin ne vaut que cette valeur (kit v0.31.0,
+`vault_paths.rs`, `a_capture_binds_the_path_to_the_writer_namespace` ;
+weebo-forgejo v0.10.0).
 
 Deux bornes indépendantes tiennent : la policy du grant dans OpenBao
 (`users/data/+/forgejo-token`, et rien d'autre), et les `pathGrants` du kit
-côté forgejo. Chaque capacité du niveau `token-writer` y sert :
+côté forgejo, refusés dès l'admission par le webhook de weebo-forgejo. Chaque capacité du niveau `token-writer` y sert :
 `create`/`update` écrivent le jeton, `read` compare avant d'écrire
 (RFC 0003), `delete` le retire au départ de l'utilisateur, et `metadata`
 porte la `custom_metadata` de propriété que le kit pose et vérifie
@@ -959,29 +1014,36 @@ cycle kyverno ↔ vault-webhook du démarrage.
 - Namespace `weebo-openbao`, un réplica, élection de leader du kit (deux
   réplicas possibles plus tard, sans changement de design).
 - ClusterRole de l'opérateur : `get/list/watch` sur ses six kinds,
-  `update/patch` sur leur `status` et leurs finalizers, `create` d'Events,
-  `get` du Secret `vault/openbao-tls` (via `resourceNames`). Rien d'autre :
-  **aucun droit sur une autre CRD**, même en lecture.
-- Role dans le namespace `weebo-openbao` seulement : `get` des Secrets, avec
-  `resourceNames` rendus par le chart depuis ses values (`openbao-oidc` par
-  défaut). Pas de `list` ni de `watch` : le Secret est relu à chaque
+  `update/patch` sur leur `status` et leurs finalizers, `create` d'Events.
+  **Aucune règle sur les Secrets** (`clusterSecrets: false` du chart de
+  bibliothèque, kit v0.30.0) et **aucun droit sur une autre CRD**, même en
+  lecture.
+- Role dans le namespace `weebo-openbao` seulement : `get` des Secrets
+  `openbao-oidc` et `openbao-tls`, par `resourceNames` (`releaseSecrets` du
+  chart). La CA se lit dans la copie de `openbao-tls` que bank-vaults pose
+  dans chaque namespace (`caNamespaces: "*"`), pas dans `vault`. Pas de
+  `list` ni de `watch` : le Secret est relu à chaque
   reconcile (5 min au plus pour voir une rotation). Un autre Secret donne
   `SecretUnavailable`.
 - Les six kinds rejoignent le `clusterResourceWhitelist` du projet `infra`
   (`2.argo/app/values.yaml`), **et de lui seul**. Aucun ClusterRole livré ne
   porte les labels `rbac.authorization.k8s.io/aggregate-to-*`.
 - `weebo-openbao` rejoint `networkPolicy.allowedNamespaces` de
-  `2.argo/helm/vault/sub/values.yaml`. Sans ça, la CiliumNetworkPolicy
-  d'OpenBao rejette la connexion, et on voit un `VaultUnavailable` qui ne dit
-  pas pourquoi.
+  `2.argo/helm/vault/sub/values.yaml`, et `weebo-forgejo` aussi (son mount
+  `users`, weebo-si `f92d6263`) : chaque namespace sujet d'un grant doit y
+  être. Sans ça, la CiliumNetworkPolicy d'OpenBao rejette la connexion, et le
+  consommateur ne voit qu'une erreur d'envoi HTTP qui ne dit pas pourquoi.
 - Le pod ne porte aucune variable `vault:` : le webhook bank-vaults ne le
   mute pas. Il lit sa CA par `caSecretRef`, comme weebo-authentik.
 - Pod du template du kit : non-root, `readOnlyRootFilesystem`, toutes les
   capabilities retirées, `seccompProfile: RuntimeDefault`. Le jeton du
   ServiceAccount est monté (il sert au login Kubernetes d'OpenBao), avec
   l'audience par défaut.
-- Egress de l'opérateur : l'apiserver et `openbao.vault:8200`, rien d'autre
-  (CiliumNetworkPolicy du chart). L'opérateur ne contacte jamais l'IdP :
+- Egress de l'opérateur : l'apiserver et `openbao.vault:8200` sont les seuls
+  flux voulus, mais **non restreints à la livraison** : la NetworkPolicy du
+  chart demande l'adresse de l'apiserver, propre au cluster, et aucun
+  opérateur frère ne l'active encore. À faire avec eux. L'opérateur ne
+  contacte jamais l'IdP :
   c'est OpenBao qui lit la `discoveryUrl`, et l'egress d'OpenBao vers l'IdP
   existe déjà pour le backend du root.
 - Le chart weebo-si des espaces pose, à côté des CRs, ce qui appartient à
@@ -996,11 +1058,12 @@ Clients : `bao` 2.7.1 (le CLI d'OpenBao, la même version que le serveur,
 OpenBao, `kubectl` 1.36 par `task k --`. Les observations 2 à 4, 8 et 10 se
 rejouent aussi dans `task test:live-openbao` du nouveau dépôt, contre un
 OpenBao 2.7.1 jetable en podman avec un IdP OIDC jetable (Dex). Les autres sont
-une preuve d'exploitation sur le lab.
+une preuve d'exploitation sur le lab. Toutes sont faites ; ce qu'elles ont
+observé, avec dates et écarts, est au journal de §17.
 
 1. **Les espaces existent-ils en live ?** `spaces.tf` et `vault-spaces.tf`
-   ne sont pas commités, et le job PostSync ne voit que le ConfigMap rendu
-   depuis git. `bao secrets list | grep -E '^(users|orgs-)'` et
+   ne figurent dans aucune `kustomization.yaml`, et le job PostSync ne voit
+   que le ConfigMap rendu depuis git. `bao secrets list | grep -E '^(users|orgs-)'` et
    `terraform state list | grep -E 'vault_(mount|policy|identity)'` sur les
    PVC `terra-job-vault` et `terra-job-authentik`. Attendu : rien (branche A,
    question 2). Sinon, §13 décrit la copie.
@@ -1054,12 +1117,13 @@ une preuve d'exploitation sur le lab.
    `batleforc-org_dev` seul : `bao login -namespace=devenv -method=oidc
    -path=authentik`, puis `bao kv put -namespace=devenv -mount=orgs
    batleforc-org/weebo-si/x a=b` (succès). Avec un login dans `preprod` :
-   `get` réussit, `put` répond 403. Dans `prod` : le login réussit, `get`
+   `get` est accordé (404 « No value found » sur un chemin vide, 403 sur
+   une autre org), `put` répond 403. Dans `prod` : le login réussit, `get`
    répond 403. Dans `users` : `bao kv put -mount=users <moi>/a b=c` réussit,
    `bao kv get -mount=users <autre>/a` répond 403.
 7. **Accès machine.** Le grant `forgejo-user-tokens` en place, depuis le pod
    de weebo-forgejo : `bao write -namespace=users auth/kubernetes/login
-   role=grant_forgejo-user-tokens jwt=@token` réussit, puis
+   role=grant_forgejo-user-tokens_0 jwt=@token` réussit, puis
    `bao kv put -namespace=users -mount=users alice/forgejo-token t=1` réussit,
    `bao kv put … alice/autre t=1` et `bao kv get … alice/autre` répondent 403.
    Le même login depuis un pod d'un autre ServiceAccount répond
@@ -1072,7 +1136,7 @@ une preuve d'exploitation sur le lab.
    répond 403 (les familles ne se croisent pas, §6.1).
 8. **Refus de l'opérateur.** Une seconde `OpenbaoOrganization`
    `spec.name: batleforc-org` passe `Ready=False`, `Conflict`, et le compteur
-   `weebo_openbao_vault_writes_total` ne bouge pas. Un layout dont on retire
+   `weebo_openbao_remote_writes_total` ne bouge pas. Un layout dont on retire
    `dev` sans l'annotation passe `DisruptiveChangeBlocked`, et le nombre
    d'alias ne bouge pas. Un `OpenbaoNamespace` `autre`, absent de `bounds`,
    passe `OutOfBounds` sans aucun appel à OpenBao.
@@ -1092,7 +1156,7 @@ une preuve d'exploitation sur le lab.
     `VaultSealed` en moins d'un cycle, aucune écriture n'est tentée, un log
     `warn` par CR et par backoff. Après `unseal`, `Ready=True` sans aucune
     écriture (rien n'avait changé).
-12. **Calme.** Une heure après `Ready`, `weebo_openbao_vault_writes_total` est
+12. **Calme.** Une heure après `Ready`, `weebo_openbao_remote_writes_total` est
     identique : aucune réécriture en régime établi, y compris du
     `client_secret`.
 
@@ -1188,7 +1252,7 @@ flowchart LR
 - Une policy d'identité se résout à chaque requête. Retirer un alias coupe
   donc l'accès des tokens déjà émis, sans attendre leur expiration (§6.P n°9).
 - **Machines** : un système s'authentifie dans le namespace par son
-  ServiceAccount (TokenReview contre l'apiserver), avec le rôle `grant_<nom>`,
+  ServiceAccount (TokenReview contre l'apiserver), avec le rôle `grant_<nom>_<i>`,
   borné par `bound_service_account_names/namespaces`. Il n'a jamais de token
   statique, et son token ne vaut que dans ce namespace.
 - Les administrateurs gardent leur accès par le root : la policy
@@ -1260,7 +1324,7 @@ Chaque identité qui touche aux espaces, ce qu'elle reçoit, et ce qui lui a
 | weebo-openbao (réseau) | egress vers l'apiserver et OpenBao | l'IdP, Internet |
 | un humain, rôle OIDC `default` | les policies de ses groupes `org_*` dans ce namespace, ou `user_space` dans `users` ; token 1 h, 8 h au plus | aucune policy par le rôle lui-même hors `user_space` ; un token d'un env n'ouvre pas un autre env |
 | weebo-openbao (OpenBao, dans `<ns>`), suite | rôles `grant_*` ne portant que `grant_*`, rôle `default` ne portant que `user_space` | toute autre combinaison de policies sur un rôle |
-| un système, rôle `grant_<nom>` | dans un namespace, la seule policy de son grant ; token 15 min, 1 h au plus | le root ; tout autre namespace ; tout `list` que son niveau ne donne pas. Sujet large seulement si chaque règle est bornée par `{sa.namespace}` |
+| un système, rôle `grant_<nom>_<i>` | dans un namespace, la seule policy de son grant ; token 15 min par défaut, non renouvelable | le root ; tout autre namespace ; tout `list` que son niveau ne donne pas. Sujet large seulement si chaque règle est bornée par `{sa.namespace}` |
 | weebo-forgejo (OpenBao) | `users/{data,metadata}/+/forgejo-token` dans `users`, par le grant `forgejo-user-tokens` | le bloc qui lui était promis dans `forgejo_operator_policy` (root) : il n'est jamais écrit |
 
 **Recommandations**, qui vont plus loin que cette RFC et lui sont confiées
@@ -1339,27 +1403,40 @@ comme suites :
 ### 10.1 Observabilité
 
 - **Métriques** (préfixe `weebo_openbao`, `ReconcileMetrics` du kit) :
-  `weebo_openbao_reconcile_total{kind, reason}` et
-  `weebo_openbao_reconcile_duration_seconds{kind}`, plus un compteur propre :
-  `weebo_openbao_vault_writes_total{vault_namespace,
-  object="namespace|mount|auth|role|policy|group|alias", action="create|update|delete"}`.
-  Pas de label par org.
+  `weebo_openbao_reconcile_total{kind, result, reason}`,
+  `weebo_openbao_reconcile_duration_seconds{kind}`, et le compteur
+  d'écritures du kit `weebo_openbao_remote_writes_total{kind, cause}`
+  (`cause` : `created`, `drift`, `deleted`). Pas de label par org ni par
+  namespace OpenBao.
 - **Logs** : la leçon Authentik est appliquée. **Chaque écriture dans OpenBao
   est logguée en `info`** (namespace, objet, action, CR, ID), chaque échec en
   `warn` ou `error` avec la raison. Le texte des policies n'apparaît qu'en
   `debug`. La config OIDC est logguée sans `oidc_client_secret`.
-- **Events** : un Event par changement de `Ready` (kit), un par suppression,
-  un `Warning` par dérive corrigée, par refus `NotOwned`, par
-  `DisruptiveChangeBlocked` et par `AuthConfigRejected`.
-- **Alertes** (ClickStack) :
-  - `Ready=False` depuis 30 min sur une CR de l'opérateur : prévenir ;
-  - n'importe quel `reason="PermissionDenied"` : prévenir tout de suite, car la
-    policy de bootstrap a changé sous l'opérateur ;
-  - `weebo_openbao_vault_writes_total` qui augmente pendant 1 h sans
-    changement de génération : une boucle de réécriture (RFC 0003) ;
-  - `object="auth"` : notifier, un changement de backend d'auth change qui
-    peut se connecter ;
-  - `action="delete"` : notifier, sans réveiller personne.
+- **Events** : un Event par changement de `Ready` (kit, `Normal` vers
+  `True`, `Warning` vers `False`), un `Warning` par erreur qui interrompt un
+  reconcile (`NotOwned`, `DisruptiveChangeBlocked`, `AuthConfigRejected`…),
+  un `Normal` par dérive corrigée (`DriftCorrected`, il nomme les champs) et
+  par suppression (`Deleted`, `Released`).
+- **Tableau de bord** ClickStack `weebo-openbao`
+  (`2.argo/helm/monitoring/dashboards/weebo-openbao.json`) : une tuile par
+  alerte ci-dessous, plus leader, durée des reconciles, Events `Warning` et
+  `Deleted`, le pod.
+- **Alertes**, sur les tuiles de ce tableau, envoyées à **ntfy**
+  (`clickstack.alerts` de `2.argo/helm/monitoring/values.yaml`, provisionnées
+  par le job `clickstack-dashboards`). L'URL du topic vit dans Vault,
+  `mv/monitoring/ntfy`, saisie par `task vault:ntfy` ; sans elle, le job
+  laisse les alertes en l'état. Priorité ntfy entre parenthèses :
+  - `reason="PermissionDenied"` sur 5 min : tout de suite (5), la policy de
+    bootstrap a changé sous l'opérateur ;
+  - reconciles en échec pendant 2 × 15 min (4) : la forme livrée de
+    « `Ready=False` depuis 30 min », qui n'a pas de métrique propre ; la CR
+    en cause se lit dans les Events `Warning` ;
+  - écritures `cause="drift"` pendant 4 × 15 min (4) : une boucle de
+    réécriture (RFC 0003) ;
+  - écritures `kind="OpenbaoNamespace"` sur 5 min (3) : la forme livrée de
+    `object="auth"`, un changement de backend change qui peut se connecter ;
+  - écritures `cause="deleted"` sur 15 min (2, sans son) : prévenir sans
+    réveiller personne.
 
 ### 10.2 Modes de défaillance
 
@@ -1440,6 +1517,7 @@ cluster, il attend OpenBao, mais personne ne l'attend lui.
 | Alternative | Pourquoi écartée |
 | --- | --- |
 | Ne rien faire : garder `spaces.tf` et `vault-spaces.tf` | Chaque org passe par le token root et un job PostSync muet (motivations 1 et 3), dans le root (5), soudée à Authentik (6). C'est le point de comparaison. |
+| Garder Terraform, mais l'appliquer avec la policy de §6.1 au lieu du token root | Ferme le token root (motivation 3), mais pas le reste : un `apply` par org, sans condition par org (1), un job PostSync qui ne dit pas ce qui a échoué (4), aucun grant déclaré par l'équipe du système (7). Et une policy qui peut tout écrire dans les namespaces ne protège pas d'un `apply` mal relu : l'opérateur, lui, ne rend que les formes de §6.2. |
 | Le brouillon : tout dans le root, borné par des préfixes (`org_*`, `orgs-*`) | Les préfixes protègent des collisions, pas d'un opérateur compromis : un alias vers `weebo_admin` restait possible (ancien T1). Écartée à la question 1. |
 | Un seul namespace `spaces/` | Borne l'opérateur aussi bien, mais garde `prod` et `devenv` dans la même policy et le même backend : une erreur de matrice touche tous les envs. Écartée à la question 1. |
 | Un namespace parent `spaces/` avec des enfants par env | L'opérateur pourrait créer des envs sans passer par Terraform (`spaces/+/…`). Mais les chemins deviennent `spaces/prod`, et ajouter un env est un acte rare : la liste Terraform de §6.1 coûte une ligne par env. |
@@ -1469,11 +1547,14 @@ cluster, il attend OpenBao, mais personne ne l'attend lui.
   namespace Kubernetes dans la NetworkPolicy d'OpenBao, les kinds dans
   l'AppProject `infra`, et côté IdP le client OIDC avec les redirect URIs de
   chaque namespace et le Secret `openbao-oidc`.
-- **Migration** : **branche A** (question 2). `spaces.tf`, `vault-spaces.tf`
-  et le bloc `users` de `forgejo.tf` ne sont jamais commités dans leur forme
-  actuelle, et sont supprimés du working tree de weebo-si. L'opérateur crée
+- **Migration** : **branche A** (question 2). `spaces.tf` et
+  `vault-spaces.tf` avaient été commités (`049a17c9`, « feat: wip ») mais
+  n'étaient dans aucune `kustomization.yaml` : le job PostSync ne les a
+  jamais vus (§6.P n°1 le confirme en live). Ils sont supprimés en phase 4,
+  et le bloc `users` de `forgejo.tf` n'a jamais existé dans git. L'opérateur crée
   tout dans les namespaces. Rien à reprendre, aucun risque de suppression
-  Terraform. Le rôle `reader` du root perd `user_space`.
+  Terraform. Le rôle `reader` du root n'a jamais eu `user_space` dans git :
+  rien à retirer.
 - **Si §6.P n°1 trouve des espaces en live** (branche B) : les objets du root
   ne se déplacent pas. On crée les namespaces par l'opérateur, puis un admin
   copie en root chaque secret (`bao kv get -format=json orgs-<env>/…` vers
@@ -1496,7 +1577,10 @@ cluster, il attend OpenBao, mais personne ne l'attend lui.
   les tests du kit le font) : c'est un `feat` du kit, pas une rupture. Pour
   chaque opérateur :
   - **weebo-forgejo** : monter de version de kit, régénérer son CRD, déclarer
-    l'entrée `users` de §6.4. C'est le seul à en avoir besoin en v1.
+    l'entrée `users` de §6.4. C'est le seul à en avoir besoin en v1. La
+    capture `{name}` des `pathGrants` (kit v0.31.0, weebo-forgejo v0.10.0)
+    lie un workspace Che à son seul chemin ; elle est aussi un `feat`, les
+    motifs existants gardent leur sens.
   - **weebo-authentik, weebo-angos, weebo-batlehub** : monter de version de
     kit au rythme habituel et régénérer le CRD. Ils gagnent la capacité
     d'écrire dans un espace d'org, sans s'en servir tant qu'aucun grant ne
@@ -1682,22 +1766,15 @@ commiter à part tout de suite, `claim_mappings`, `user_space` sur `reader` ;
 le binding Authentik `vault-access` ; `additionalMounts` de forgejo sans
 `vaultNamespace`) ; la NetworkPolicy d'OpenBao doit ouvrir `weebo-forgejo` et
 chaque namespace sujet d'un grant ; l'AppProject `infra` a besoin de `dest`
-et `sourceRepo`, pas seulement des kinds.
+et `sourceRepo`, pas seulement des kinds. Réglés : l'AppProject et la
+NetworkPolicy en phase 3 (`weebo-forgejo` le 2026-11-14), le WIP rangé dans
+le `stash@{0}` de weebo-si et repris ou abandonné point par point (§17.3).
 
-Constats de la revue que le texte corrige sans changer de décision : la
-commande de login de §1, le nombre de CRDs, §6.P n°8 et n°10, §7.7 contre
-§6.1, la phase du device d'audit (avant la policy de l'opérateur), la
-réponse de §7 sur les secrets lisibles par un opérateur compromis, l'erreur
-de la sonde §6.P n°3 sur les listes JSON. Restent à reporter dans le texte,
-sans décision : la liste des raisons avec leur remède, la note « retirer
-`allow-disruptive-update` après la synchro », les colonnes `kubectl get`, les
-Events (`Normal` dans le kit, `LevelChanged` et `DriftCorrected` en Events et
-non en advisories), `organizations: ["*"]` défini sur l'instance, l'ordre
-d'écriture d'un grant qui s'élargit d'un côté et se resserre de l'autre, le
-`caSecretRef` vers la copie de `openbao-tls` dans `weebo-openbao`,
-l'`audience` des rôles Kubernetes, l'alternative « Terraform avec la policy
-de §6.1 au lieu du token root » en §12, et la liste des fichiers de weebo-si
-touchés.
+Constats de la revue que le texte corrige sans changer de décision : faits,
+et depuis le 2026-11-14 reportés dans le texte avec ce que l'implémentation a
+changé (raisons et remèdes en §6.3, colonnes `kubectl` et type des Events en
+§6.3 et §10.1, audience des rôles Kubernetes en §6.2, alternative
+« Terraform sans token root » en §12, fichiers de weebo-si dans l'en-tête).
 
 Faits constatés le 2026-11-06 sur OpenBao 2.7.1 (§6.P n°2 et 3) :
 l'isolation des namespaces tient, et la policy de §6.1, corrigée, refuse tout
@@ -1732,337 +1809,117 @@ contrôle de §7) arrive avant la première CR (la surface), et la sonde de
 
 ---
 
-## 17. Révision contre l'arbre (2026-11-06) : phases 0 à 6
+## 17. Journal d'implémentation (2026-11-06 au 2026-11-14)
 
-Phases 0 à 3 livrées le 2026-11-06. Les sections 1 à 16 restent le texte
-relu ; ce qui suit est l'écart, chaque fois avec sa raison. La RFC reste
-`In review` jusqu'à la phase 6.
+Les sections 1 à 16 décrivent ce qui est livré : les écarts relevés en
+cours de route y ont été reportés le 2026-11-14, chacun avec sa raison. Ce
+journal garde ce que le texte ne dit pas : quand, où, ce que les preuves ont
+observé, et ce qui reste.
 
-### 17.1 Ce qui a été livré
+### 17.1 Livraisons
 
-| Phase | Livré | Où |
-| --- | --- | --- |
-| 0 | §6.P n°1 : **branche A confirmée en live**. Root : aucun mount `users`/`orgs-*`, aucune policy `user_space`/`org_*`, aucun groupe `org_*`, aucun namespace. | sonde `bao` dans `openbao-0` |
-| 1 | `VaultAdditionalMount.{vaultNamespace, auth}`, `SecretTarget.vaultNamespace`, `VaultSession` public | kit v0.28.0 à v0.29.0 |
-| 2 | Dépôt `weebo-openbao` : six CRDs, CEL, rendu des règles, use-cases, adaptateur, envtest, `test:live-openbao` | weebo-openbao v0.1.0 à v0.1.3 |
-| 3 | Device d'audit, puis policy et rôle Terraform, NetworkPolicy, AppProject `infra`, opérateur et `OpenbaoInstance/main` | weebo-si `02faf128`, `a0c513de`, `9f8d6b9c` |
+| Phase | Date | Livré | Où |
+| --- | --- | --- | --- |
+| 0 | 2026-11-06 | §6.P n°1 : branche A confirmée en live (aucun mount `users`/`orgs-*`, aucune policy `user_space`/`org_*`, aucun groupe `org_*`, aucun namespace dans le root) | sonde `bao` dans `openbao-0` |
+| 1 | 2026-11-06 | `VaultAdditionalMount.{vaultNamespace, auth}`, `SecretTarget.vaultNamespace`, `VaultSession` public | kit v0.28.0 à v0.29.0 |
+| 2 | 2026-11-06 | Dépôt `weebo-openbao` : six CRDs, CEL, rendu des règles, use-cases, adaptateur, envtest, `test:live-openbao` | weebo-openbao v0.1.0 à v0.1.3 |
+| 3 | 2026-11-06 | Device d'audit, puis policy et rôle Terraform, NetworkPolicy, AppProject `infra`, opérateur et `OpenbaoInstance/main` | weebo-si `02faf128`, `a0c513de`, `9f8d6b9c` |
+| 4 | 2026-11-06 → 13 | Client OIDC `openbao`, chart `2.argo/helm/vault/spaces` (niveaux, cinq namespaces, layout, `batleforc-org`), Application `openbao-spaces` sans prune, `spaces.tf`/`vault-spaces.tf` supprimés ; Secret OIDC en vague 5 | weebo-si `c4e62809`, `42bba270` |
+| 5 | 2026-11-13 | Niveau `token-writer`, grant `forgejo-user-tokens`, mount `users` de forgejo ; weebo-openbao v0.1.5 | weebo-si `2a4e6ea5`, `40e1bf15`, `3ca4c370` |
+| 6 | 2026-11-13 | `Infra/openbao.mdx`, tableau de bord `weebo-openbao`, budget `weebo-kit-perf` hebdomadaire, §6.P n°11 dans `test:live-openbao` | weebo-si `fb9e4fd6`, `26fd86c7` ; weebo-openbao `02c441b`, `c9d40da` |
+| 6 bis | 2026-11-14 | Alertes de §10.1 vers ntfy, `task vault:ntfy` | weebo-si `eacb7cd9`, `3e6ff3e8` |
+| 6 bis | 2026-11-14 | Captures `{name}` des `pathGrants`, jetons Che dans `users/<username>/forgejo-token`, `weebo-forgejo` admis par la NetworkPolicy d'OpenBao | kit v0.31.0 (`794a2b7`), weebo-forgejo v0.10.0, weebo-si `9d08a3b2`, `f92d6263` |
+| — | 2026-11-14 | Quatre reason codes du template retirés | weebo-openbao `4dfa0ab` |
 
-### 17.2 Écarts au texte
+Faits de déploiement, sans effet sur le design :
 
-1. **La CA d'OpenBao se lit dans le namespace de l'opérateur, pas dans
-   `vault`** (contre §6.6, « `get` du Secret `vault/openbao-tls` » dans le
-   ClusterRole). bank-vaults copie `openbao-tls` dans tous les namespaces
-   (`caNamespaces: "*"`). Le kit v0.30.0 ajoute au chart de bibliothèque
-   `clusterSecrets: false` et `releaseSecrets` : le ClusterRole de
-   weebo-openbao ne porte **aucune** règle sur les Secrets, et son Role ne
-   donne que `get` sur `openbao-oidc` et `openbao-tls`, par nom, dans
-   `weebo-openbao`. C'est plus étroit que le texte.
-2. **Le device d'audit est déclaratif, sur stdout** (question 5, que le texte
-   laissait ouverte sur la forme). Il est déclaré dans `config.audit` du CR
-   `Vault` (`2.argo/helm/vault/sub/templates/vaultInstance/instance.yaml`).
-   OpenBao 2.7.1 refuse `bao audit enable` (« cannot enable audit device via
-   API; use declarative, config-based audit device management »), mesuré en
-   podman puis en live : aucun token, root compris, ne peut l'ajouter ni le
-   retirer. Les valeurs y sont en HMAC, messages d'erreur compris.
-3. **La policy de l'opérateur vit dans `weebo-openbao.tf`**, pas dans
-   `auth-base.tf` (§6.1). C'est un fichier par consommateur, comme
-   `forgejo.tf` ou `angos.tf`. Le texte HCL est celui de §6.1, et
-   `test:live-openbao` charge les mêmes lignes. Rendue pour les cinq
-   namespaces, elle compte 85 chemins.
-4. **Ordre audit puis policy, tenu en substance seulement.** Le job Terraform
-   a créé la policy environ quinze minutes avant que l'audit soit actif, parce
-   que la synchro automatique de `vault-app` était coupée en live et que cette
-   synchro a été faite à la main ensuite, avec l'accord de Max (elle
-   redémarre OpenBao). Aucune `OpenbaoInstance` n'existait dans cet
-   intervalle, et l'opérateur ne s'est pas connecté.
-5. **Egress de l'opérateur non restreint** (contre §6.6). La NetworkPolicy du
-   chart demande l'adresse de l'apiserver, propre au cluster, et aucun
-   opérateur frère ne l'active encore. Ce point reste à faire, avec les
-   autres opérateurs.
-6. **`spaces.tf` et `vault-spaces.tf` ont été commités** (`049a17c9`,
-   « feat: wip »), contre §13 qui les disait jamais commités. Ils ne figurent
-   dans aucune `kustomization.yaml` : le job PostSync ne les a jamais vus, et
-   la sonde du point 0 le confirme. La branche A tient. Ils sont supprimés en
-   phase 4.
-7. **Défauts du template, trouvés au déploiement.** v0.1.0 bloquée par
-   CVE-2026-84243 (glibc, sans correctif) : même exception datée que les
-   autres opérateurs, jusqu'au 2026-12-06. v0.1.1 livrait deux CRDs du
-   template sans contrôleur (`OpenbaoLocalInstance`, `OpenbaoObject`), parce
-   que `task recu` ne supprimait pas les CRDs des kinds retirés. v0.1.2
-   tirait son image de `ghcr.io/batleforc`, où rien n'est publié. Le
-   template est corrigé dans le kit v0.30.1.
+- **Ordre audit puis policy, tenu en substance seulement.** Le job Terraform
+  a créé la policy environ quinze minutes avant que l'audit soit actif : la
+  synchro de `vault-app` (qui redémarre OpenBao) était coupée et a été faite
+  à la main ensuite, avec l'accord de Max. Aucune `OpenbaoInstance`
+  n'existait dans l'intervalle.
+- **Device d'audit déclaratif, sur stdout** (question 5) : OpenBao 2.7.1
+  refuse `bao audit enable` (« use declarative, config-based audit device
+  management »), root compris. Il est dans `config.audit` du CR `Vault`.
+- **Défauts du template, trouvés au déploiement** : v0.1.0 bloquée par
+  CVE-2026-84243 (glibc, exception datée jusqu'au 2026-12-06) ; v0.1.1
+  livrait deux CRDs du template sans contrôleur ; v0.1.2 visait
+  `ghcr.io/batleforc`. Corrigés dans le kit v0.30.1. v0.1.4 n'a pas d'image
+  (grype, CVE-2026-102010 dans `libgcc`) ; les six opérateurs et le template
+  sont passés sur la nouvelle base `core-runtime` le 2026-11-13.
+- **Blocage de `openbao-spaces` le 2026-11-06** : l'ExternalSecret en vague
+  0 retenait les vagues suivantes ; débloqué de lui-même, cause non établie.
+  La vague 5 (`42bba270`) l'évite désormais.
+- **Event `Deleted`** : son message répétait les namespaces une fois par
+  case ; corrigé (`89bb047`, v0.1.5).
 
-### 17.3 Ce que la preuve a observé
+### 17.2 Ce que la preuve a observé
 
-- §6.P n°2 et 3 : mesurés en podman sur 2.7.1 (phase 0) et rejoués par
+Clients : `bao` 2.7.1 contre `https://vault.weebo.poc`, `kubectl` 1.36,
+jetons de ServiceAccount par `kubectl create token`. Les tokens de preuve
+sont révoqués, et les objets créés hors git supprimés.
+
+- **n°2 et 3** : mesurés en podman sur 2.7.1 (phase 0), rejoués par
   `test:live-openbao`.
-- **§6.P n°4 et T1, en live.** Connecté avec le ServiceAccount
-  `weebo-openbao/weebo-openbao`, le token ne porte que `default` et
-  `weebo_openbao_operator`. Sont refusés en 403 :
-  - lire `weebo_admin` ;
-  - écrire une policy dans le root ;
-  - `namespace list` ;
-  - lire `mv/argocd/auth` ;
-  - `auth list`, `secrets list` et `audit list` ;
-  - lire un namespace hors des bornes.
+- **n°4 et T1** (2026-11-06) : connecté en `weebo-openbao/weebo-openbao`, le
+  token ne porte que `default` et `weebo_openbao_operator`. 403 sur : lire
+  `weebo_admin`, écrire une policy du root, `namespace list`, lire
+  `mv/argocd/auth`, `auth list`, `secrets list`, `audit list`, un namespace
+  hors bornes. Chaque requête est dans l'audit.
+- **n°5** : test `the_weebo_layout_renders_the_terraform_org_policies`
+  (`af1467a`) : les 34 chemins et capacités de l'ancien `vault_policy.org`,
+  à l'identique ; une case changée le fait échouer.
+- **n°6** (2026-11-13) : `batleforc-test`, membre de `batleforc-org_dev` et
+  `test_dev` seulement. `devenv` : `put` puis `get` réussissent. `preprod` :
+  `put` 403, `get` 404 sur un chemin vide et 403 sur une autre org. `prod` :
+  login avec `default` seule, `get` 403. `users` : `put batleforc-test/a`
+  réussit, `get batleforc/a` 403.
+- **n°7** (2026-11-13) : `weebo-forgejo` se connecte dans `users` au rôle
+  `grant_forgejo-user-tokens_0` (TTL 15 min) ; `alice/forgejo-token` en
+  `put`/`get`, `alice/autre` 403 ; le ServiceAccount `default` est refusé
+  (« service account name not authorized »). `repo-workloads-read-own`
+  (hors git, le temps de la preuve) : `default` de `weebo-si` lit
+  `batleforc-org/weebo-si/x`, 403 sur `autre/x` et `weebo-forgejo/x`. Un
+  token `weebo_openbao_operator` ne peut pas écrire un rôle portant
+  `org_a_owner` (403, rôle absent ensuite).
+- **n°7 bis, de bout en bout par l'opérateur** (2026-11-14) : le webhook de
+  weebo-forgejo v0.10.0 accepte en dry-run serveur un `ForgejoAccessToken`
+  de `dev-ws-batleforc` visant `users` `batleforc/forgejo-token`, et refuse
+  `batleforc-test/forgejo-token` (« no pathGrants entry of that mount allows
+  it for namespace "dev-ws-batleforc" »). `che-workspace` repasse `Ready`
+  après l'ouverture de la NetworkPolicy ; avant, le login de l'opérateur
+  échouait en « Error sending HTTP request ».
+- **n°9** (2026-11-13 et 14) : `OpenbaoOrganization/test` hors git, un
+  secret dans `devenv/orgs/test/weebo-si/x`, puis `kubectl delete` :
+  finalizer libéré en moins d'une seconde (`Deleted`, `Released`). Le même
+  token, émis avant, perd `org_test_dev`, son `get` sur `test/` répond 403,
+  `batleforc-org/` reste lisible. Un login root (`weebo_admin`) lit encore
+  le secret de `test/` : les secrets survivent à l'org. Non observé en
+  live : l'ordre alias avant groupe (test `cleanup_revokes_alias_group_policy`).
+- **n°11** (`c9d40da`, OpenBao jetable) : scellé, les trois reconciles
+  s'arrêtent sur `VaultSealed` sans écriture ; descellé, ils repassent en
+  `Reconciled` sans écriture.
+- **n°12** (lab, 2026-11-13) : de 15:45:55Z à 16:47:10Z, 164 reconciles
+  réussis, aucun redémarrage, `weebo_openbao_remote_writes_total` absent :
+  aucune écriture, `client_secret` compris.
+- **Budget** (`Budget::small_cluster()`, OpenBao factice) : 27,8 Mio au
+  repos, 100 organisations convergées en 2,6 s, 22 lectures et 0 écriture
+  par organisation en régime établi. La latence et le stockage d'OpenBao ne
+  sont pas mesurés ; le réel est couvert par n°12.
 
-  Chaque requête apparaît dans l'audit. Le token de sonde a été révoqué.
-- `OpenbaoInstance/main` est `Ready`, raison `Reconciled`, message
-  « OpenBao answers the operator's login ».
+### 17.3 Reste
 
-### 17.4 Reste du texte à reprendre (revue finale, sans effet sur le design)
-
-- Une remédiation par reason code.
-- Les colonnes `kubectl`.
-- Le type de chaque Event.
-- L'audience des rôles Kubernetes.
-- L'alternative « garder Terraform » en §12.
-- La liste exacte des fichiers de weebo-si en en-tête : faite ici en
-  partie.
-- Quatre reason codes du template (`InstanceAmbiguous`, `InstanceNotAllowed`,
-  `InstanceBindingChanged`, `TokenSecretNotAllowed`) ne servent pas dans
-  weebo-openbao et restent à retirer.
-
-### 17.5 Phase 4 : livrée et prouvée (2026-11-13)
-
-Poussée dans weebo-si (`c4e62809`, branche `develop`) le 2026-11-06, puis
-réconciliée sans intervention le 2026-11-13 (état ci-dessous). Preuves n°5, 6
-et 9 de §6.P faites le même jour (plus bas).
-
-**Ce qui a été livré.**
-
-| Où | Quoi |
-| --- | --- |
-| `2.argo/helm/auth/{main,sub}/values.yaml` | Application Authentik `openbao`, client OIDC des namespaces, distincte de `vault` (le root). `accessGroup: weebo_user`. Une redirect URI par namespace (`…/oidc/callback?namespace=<ns>`) et celle du CLI. Le secret est écrit en `mv/weebo-openbao/oidc` (`secretTargets`, d'où un `pathGrants` de l'instance pour `auth`). Groupes `batleforc-org_{owner,maintainer,dev}`, et `batleforc` est membre de `batleforc-org_owner` |
-| `2.argo/helm/vault/spaces` (nouveau chart) | SecretStore et ExternalSecret `openbao-oidc` (clé `client-secret` ← `AUTHENTIK_CLIENT_SECRET`, rôle `auth-read`, SA `default`). Niveaux `read`, `write`, `owner`. Les cinq `OpenbaoNamespace` des bornes (`users` : `[users]`, les autres : `[orgs]`), chacun avec un backend `authentik` (oidc) et un backend `kubernetes`. Layout `weebo` et `OpenbaoOrganization/batleforc-org` |
-| `2.argo/helm/vault/main/templates/openbao/spaces.yaml` | Application `openbao-spaces`, synchro automatique, **sans prune**. Elle est séparée de `vault-app`, dont la synchro est manuelle et redémarre OpenBao |
-| `2.terra/vault/terra-map/auth-base.tf` | `auth-read` lie aussi le namespace `weebo-openbao` |
-| Branche A | `spaces.tf` et `vault-spaces.tf` supprimés |
-
-Vérifié avant de pousser :
-
-- Les dix CRs passent un `kubectl apply --dry-run=server` contre les CRDs
-  live (schéma, CEL, webhook).
-- Le rendu de l'`AuthentikInstance` contient le `pathGrants` de
-  `weebo-openbao/oidc`.
-
-**État à l'interruption** (2026-11-06) :
-
-- `openbao-spaces` : `OutOfSync` et `Degraded`.
-- ExternalSecret `openbao-oidc` : `SecretSyncedError`.
-- Aucun `OpenbaoNamespace` ni `OpenbaoOrganization` créé.
-
-Les vagues expliquent le blocage : l'ExternalSecret est en vague 0, donc tant
-qu'il n'est pas sain, Argo n'applique pas les vagues suivantes. Causes
-probables, **non vérifiées** :
-
-- le job Terraform qui ajoute `weebo-openbao` à `auth-read` n'a pas encore
-  tourné ;
-- ou weebo-authentik n'a pas encore écrit `mv/weebo-openbao/oidc` :
-  l'application `openbao` attend que l'`AuthentikInstance` porte le nouveau
-  `pathGrants`.
-
-**État au 2026-11-13** (lu avec le kubeconfig à certificat de weebo-si,
-`0.config/kubeconfig.yaml`) :
-
-- ExternalSecret `openbao-oidc` : `SecretSynced`, `Ready`.
-- `openbao-spaces` : `Synced` et `Healthy`.
-- Les cinq `OpenbaoNamespace` et `OpenbaoOrganization/batleforc-org` :
-  `Ready`, raison `Reconciled`.
-
-La cause du blocage du 2026-11-06 n'est pas établie : le Secret s'est
-débloqué de lui-même, et il ne reste aucun Event. L'une des deux causes
-probables ci-dessus, résolue par le passage suivant du job ou de
-weebo-authentik, reste l'explication la plus simple.
-
-**Correction de conception** (weebo-si `42bba270`) : le
-SecretStore `cred-store` et l'ExternalSecret `openbao-oidc` passent de la
-vague 0 à la vague 5, après toutes les CRs. Un Secret absent ne retient plus
-les namespaces : l'opérateur le signale par `SecretUnavailable` sur le seul
-backend `authentik`.
-
-Après la synchro de `42bba270` : `openbao-spaces` `Synced`/`Healthy`,
-SecretStore et ExternalSecret en vague 5 et `Ready`.
-
-**Preuves de §6.P** (2026-11-13, `bao` 2.7.1, `https://vault.weebo.poc`) :
-
-- **n°5, parité du rendu** : test
-  `the_weebo_layout_renders_the_terraform_org_policies` (weebo-openbao
-  `af1467a`, `crates/domain/src/policy.rs`). Le layout et les niveaux de
-  weebo-si, rendus case par case et mis bout à bout par rôle, donnent
-  exactement les 34 chemins et capacités de `vault_policy.org` développé
-  depuis `c4e62809^:2.terra/auth/terra-map/vault-spaces.tf`. Une case
-  modifiée (`dev` en `write` dans `preprod`) le fait échouer.
-- **n°6, un humain au travers du vrai login** : `batleforc-test`, membre de
-  `batleforc-org_dev` et de `test_dev` seulement (weebo-si `91f42a86`, retiré
-  par `01e641a0`), login OIDC `authentik` dans chaque namespace.
-  - `devenv` : policies `org_batleforc-org_dev`, `org_test_dev`. `kv put`
-    puis `get` de `batleforc-org/weebo-si/x` réussissent.
-  - `preprod` : mêmes policies. `put` répond 403. `get` du même chemin
-    répond 404 (« No value found ») et celui d'une autre org 403 : la
-    lecture est accordée, le chemin est vide, et ce compte ne peut pas
-    l'écrire. Écart au texte de n°6, qui attend un `get` réussi.
-  - `prod` : le login réussit avec la seule policy `default`, `get` répond
-    403.
-  - `users` : policies `default`, `user_space`. `kv put
-    batleforc-test/a` réussit, `kv get batleforc/a` répond 403.
-- **n°9, suppression** : CR `OpenbaoOrganization/test` appliquée hors git
-  (11 cases `Ready`), un secret écrit par le membre dans
-  `devenv/orgs/test/weebo-si/x`, puis `kubectl delete`. Finalizer libéré en
-  moins d'une seconde (Events `Deleted`, `Released`). Le **même** token,
-  émis à 15:00:47 avant la suppression de 15:03:39, a perdu `org_test_dev`
-  de ses `identity_policies`, son `get` sur `test/` répond 403, et
-  `batleforc-org/` reste lisible. Non observé en live : l'ordre alias avant
-  groupe (il faut un token qui lise `identity/`, couvert par le test
-  `cleanup_revokes_alias_group_policy`). Observé le 2026-11-14 avec un
-  login root (`weebo_admin`) : `devenv/orgs/test/weebo-si/x` reste lisible
-  (version 1, clé `a`), les secrets survivent à la suppression de l'org
-  comme prévu.
-
-Lab nettoyé le 2026-11-14 : `devenv/orgs/test/weebo-si/x` et
-`devenv/orgs/batleforc-org/weebo-si/x` effacés (`kv metadata delete`, token
-root révoqué ensuite). Les tokens de la preuve sont révoqués.
-
-**Défaut relevé** : le message de l'Event `Deleted` répète les namespaces une
-fois par case (« devenv, preprod, recette, devenv, preprod, prod, … ») au
-lieu d'une fois chacun. Corrigé dans weebo-openbao `89bb047`, publié en
-v0.1.5 (§17.6).
-
-**Écarts déjà connus** par rapport à §4.1 :
-
-- L'hôte est `vault.weebo.poc` et non `openbao.weebo.fr`, et le
-  `discoveryUrl` est `https://auth.weebo.poc/application/o/openbao/`.
-- Le niveau `token-writer` est arrivé en phase 5 (§17.6).
-- Le stash `stash@{0}` de weebo-si (WIP de Max) recoupe ces fichiers : les
-  groupes `batleforc-org_*`, `additionalMounts` de forgejo et `vault.tf`.
-  Tout y est fait ou abandonné (§17.6) : il peut être jeté, et un
-  `stash pop` entrerait en conflit sur `auth/sub/values.yaml`.
-
-### 17.6 Phase 5 : modèle machine (2026-11-13)
-
-**Livré** dans weebo-si (`develop`) :
-
-| Où | Quoi |
-| --- | --- |
-| `2.argo/helm/vault/spaces/values.yaml` | Niveau `token-writer` (data et metadata `create, read, update, delete`, pas de `list`). Liste `grants` |
-| `2.argo/helm/vault/spaces/templates/grants.yaml` | Un `OpenbaoAccessGrant` par entrée de `grants`, vague 4. `forgejo-user-tokens` : namespace `users`, sujet `weebo-forgejo/weebo-forgejo`, `users` `+/forgejo-token` en `token-writer` (`2a4e6ea5`) |
-| `2.argo/helm/forgejo` | `operator.vault.additionalMounts` rendu dans la `ForgejoInstance` : mount `users`, `vaultNamespace: users`, login `kubernetes` au rôle `grant_forgejo-user-tokens_0`, `pathGrants` `[forgejo]` `+/forgejo-token` (`2a4e6ea5`, `40e1bf15`). weebo-forgejo v0.9.0 était déjà sur le kit v0.29.0, qui porte `vaultNamespace` et `auth` |
-| weebo-openbao | v0.1.5, déployée sur le lab (weebo-si `3ca4c370`, toutes les CRs restent `Ready`) : le correctif de l'Event `Deleted` (`89bb047`) et la base `core-runtime` à jour (`93c5056`). La publication de v0.1.4 avait échoué au contrôle grype (`--fail-on high`, CVE-2026-102010 dans `libgcc` 16.2.1-3.1) ; le tag v0.1.4 reste, sans image |
-
-**Retrait de `user_space` du rôle `reader` du root : sans objet.** Dans git,
-`reader` a toujours `token_policies = ["reader"]` (`vault.tf`). L'ajout de
-`user_space` n'existe que dans le stash et n'a jamais été appliqué, et §6.P
-n°1 n'a trouvé aucune policy `user_space` dans le root.
-
-**§6.P n°7** (2026-11-13, `bao` 2.7.1, jetons de ServiceAccount obtenus par
-`kubectl create token`, ce qu'OpenBao voit est le même JWT que depuis le
-pod) :
-
-- `forgejo-user-tokens` : le ServiceAccount `weebo-forgejo` se connecte dans
-  `users` au rôle `grant_forgejo-user-tokens_0` (policies `default`,
-  `grant_forgejo-user-tokens`, TTL 15 min). `kv put` puis `get` de
-  `alice/forgejo-token` réussissent ; `put`, `get` et `list` de
-  `alice/autre` répondent 403. Le même login avec le ServiceAccount
-  `default` répond 403 « service account name not authorized ».
-- `repo-workloads-read-own`, appliqué hors git le temps de la preuve avec un
-  namespace Kubernetes `weebo-si` temporaire (supprimés ensuite, finalizer
-  libéré) : le ServiceAccount `default` de `weebo-si` lit
-  `devenv/orgs/batleforc-org/weebo-si/x`, et reçoit 403 sur
-  `batleforc-org/autre/x` et `batleforc-org/weebo-forgejo/x`. C'est OpenBao
-  qui a rendu `{sa.namespace}`.
-- Avec un token `weebo_openbao_operator` (rôle `weebo-openbao` du root),
-  `write -namespace=devenv auth/kubernetes/role/grant_x
-  token_policies=org_a_owner` répond 403, et le rôle n'existe pas ensuite.
-
-**Écarts au texte.**
-
-- **Un rôle par sujet.** L'opérateur crée `grant_<nom>_<index>`
-  (`status.roles`), pas `grant_<nom>` (`status.role`, §6.3 et §6.4). Le
-  premier login au nom du texte a répondu « invalid role name ». Le
-  consommateur doit nommer le rôle par la position du sujet dans la liste,
-  qui change si on réordonne les sujets. **Tranché par Max (2026-11-13) :
-  on garde l'index**, documenté dans la description du CRD (weebo-openbao
-  `68c3e0c`), le chart `spaces` et `Infra/openbao.mdx` : un sujet nouveau
-  s'ajoute à la fin, le rôle se lit dans `status.roles`.
-- **De bout en bout par l'opérateur : non fait.** Aucun objet n'écrit encore
-  dans `users`. Les jetons des workspaces Che (`dev-ws-*/che-workspace`)
-  vont dans un Secret Kubernetes, sans `secretTargets`. Un
-  `ForgejoAccessToken` d'essai dans `forgejo` pour `batleforc` est refusé
-  par le webhook de weebo-forgejo (un site admin demande une
-  `ForgejoNamespacePolicy`), refus voulu.
-- **`pathGrants` de forgejo.** `[forgejo]`, repris du stash, ne couvre pas
-  les CRs des workspaces (`dev-ws-*`). `dev-ws-*` ouvrirait
-  `<autre>/forgejo-token` à tout `ForgejoAccessToken` d'un workspace : le
-  kit ne sait pas lier le namespace `dev-ws-<user>` au chemin `<user>/`.
-  À trancher avec le passage des jetons Che dans OpenBao.
-- **Docs.** Les deux champs apparaissent dans la page CRD générée de
-  `ForgejoInstance` ; l'exemple de §6.4 n'est écrit nulle part. Il relève de
-  la phase 6 (`Infra/openbao.mdx`).
-- **Bases d'image.** Les six opérateurs épinglaient le même digest de
-  `core-runtime`. Monté partout le 2026-11-13 : weebo-angos `6c50903`,
-  weebo-authentik `8484ad0`, weebo-batlehub `10b5d6d` (après `93860c7`,
-  ammonia 4.2.5 pour RUSTSEC-2026-0533, qui bloquait son audit), weebo-forgejo
-  `7f36144`, weebo-stalwart `edb3d73`, le template du kit `b42876f`.
-
-### 17.7 Phase 6 : doc, observabilité, budget (2026-11-13)
-
-**Livré.**
-
-| Où | Quoi |
-| --- | --- |
-| weebo-si `fb9e4fd6` | `0.docs/content/docs/Infra/openbao.mdx` : qui vit où, le modèle humain (table du layout, ajouter une org, donner un rôle), le login par namespace (CLI et UI), « donner un accès à un système » (grants, nom des rôles, l'exemple forgejo, `{sa.namespace}`), les modes de défaillance |
-| weebo-si `26fd86c7` | Tableau de bord ClickStack `weebo-openbao` : les cinq conditions de §10.1 en tuiles, plus leader, durée des reconciles, Events `Warning` et `Deleted`, le pod de l'opérateur. Les métriques arrivent déjà (annotations de scrape de l'Application) |
-| weebo-openbao `02c441b` | Budget `weebo-kit-perf` hebdomadaire (`task perf`, `.github/workflows/perf.yml`) : binaire de release contre envtest et un OpenBao factice en HTTPS, 100 organisations sur le layout `weebo` |
-| weebo-openbao `c9d40da` | §6.P n°11 dans `test:live-openbao` |
-
-**Mesures du budget** (`Budget::small_cluster()`, tout passe) : mémoire au
-repos 27,8 Mio au plus, croissance 6,3 % entre les fenêtres de repos, CPU au
-repos 0,33 m, 7 à 9 requêtes apiserver par organisation, convergence de 100
-organisations en 2,6 s. Par organisation : 22 lectures et 33 écritures à la
-création, **22 lectures et 0 écriture en régime établi** (une resynchro
-forcée), 3 écritures pour un renommage d'alias, 33 suppressions. Les
-chiffres de §10.3 tiennent.
-
-**§6.P n°11, scellé** (OpenBao 2.7.1 jetable) : un namespace, une
-organisation et un grant en place, `bao operator seal` ; les trois reconciles
-s'arrêtent sur `VaultSealed` sans aucune écriture. Après `unseal`, le même
-token les repasse en `Reconciled`, sans écriture. Non couvert par ce test :
-le délai « en moins d'un cycle » et le log `warn` par CR et par backoff, qui
-relèvent du contrôleur.
-
-**§6.P n°12, calme** (lab) : weebo-openbao v0.1.5 démarré à 15:45:55Z ; à
-16:47:10Z, 164 reconciles réussis (63 `OpenbaoNamespace`, 51 niveaux, 13
-instances, 13 grants, 12 organisations, 12 layouts), aucun redémarrage, et
-`weebo_openbao_remote_writes_total` absent : aucune écriture depuis le
-démarrage, `client_secret` compris.
-
-**Écarts au texte.**
-
-- **Métriques.** Le compteur est celui du kit,
-  `weebo_openbao_remote_writes_total{kind, cause}` (`cause` : `created`,
-  `drift`, `deleted`), et non `vault_writes_total{vault_namespace, object,
-  action}` (§10.1). Les alertes sont transposées : `object="auth"` devient
-  les écritures de `kind="OpenbaoNamespace"`, `action="delete"` devient
-  `cause="deleted"`, la boucle de réécriture des écritures `drift` qui ne
-  cessent pas. « `Ready=False` depuis 30 min » n'a pas de métrique : il se lit
-  en `result="error"` à chaque essai, et la CR en cause dans les Events
-  `Warning`.
-- **Les alertes ne partent pas.** Rien dans weebo-si ne provisionne d'alerte
-  HyperDX ni de canal de notification (le job de provisionnement retire
-  `alerts` des tableaux). Les conditions se lisent sur le tableau de bord ;
-  les envoyer demande de choisir un canal, pour tous les opérateurs à la
-  fois.
-- **Budget.** OpenBao y est factice : sa latence et son stockage ne sont pas
-  mesurés, et « zéro écriture » y vaut ce que vaut le faux. Le réel est
-  couvert par `test:live-openbao` (« a second pass writes nothing ») et par
-  n°12. Le workflow est local et non le `perf.yml` réutilisable du kit, qui
-  régénère un site de docs que weebo-openbao n'a pas encore.
-
-**Reste avant `Implemented`.**
-
-1. Un canal pour les alertes de §10.1 (décision d'infra, commune aux
-   opérateurs).
-2. Les jetons Che dans OpenBao, avec la question des `pathGrants` de forgejo
-   (§17.6).
-3. Reporter dans le texte les points de §17.4 et les écarts de §17.5 à §17.7.
-
+- **Avant `Implemented`, deux observations** :
+  1. lire `users/batleforc/forgejo-token` avec le login de `batleforc` dans
+     `users`, pour voir le jeton écrit par weebo-forgejo ;
+  2. saisir l'URL ntfy (`task vault:ntfy`), puis voir le job
+     `clickstack-dashboards` créer les cinq alertes et une notification
+     arriver.
+- **Egress de l'opérateur non restreint** (§6.6) : à faire avec les autres
+  opérateurs, quand la NetworkPolicy du chart saura l'adresse de
+  l'apiserver.
+- **Un webhook ntfy privé** : HyperDX refuse une URL qui résout en adresse
+  privée, sauf si son hôte est dans `WEBHOOK_HOSTNAME_ALLOWLIST` ; non
+  configuré, un ntfy public suffit aujourd'hui.
+- Le `stash@{0}` de weebo-si (WIP de Max) est entièrement couvert ou
+  abandonné : il peut être jeté.
