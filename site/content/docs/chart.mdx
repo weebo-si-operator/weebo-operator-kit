@@ -73,7 +73,7 @@ operator adds its own keys next to these.
 | `probes`, `shutdown` | startup/readiness/liveness, `drainSeconds`, `preStopSleepSeconds`, `terminationGracePeriodSeconds` |
 | `podDisruptionBudget`, `rbac.namespacedExample` | PDB, an example Role letting a team manage the namespaced kinds |
 | `resources`, scheduling, security contexts | requests (no CPU limit on purpose), topology spread, restricted contexts |
-| `networkPolicy`, `extraEnv` | egress rules (plus the operator's `params.egress`), extra variables |
+| `networkPolicy`, `extraEnv` | egress rules (plus the operator's `params.egress`), `kind: CiliumNetworkPolicy` on Cilium (an `ipBlock` cannot select the API server there; rules are then Cilium rules), extra variables |
 
 Kept from weebo-forgejo's chart, where the contract comes from: resource
 names (`<fullname>`, `-webhook`, `-webhook-tls`, `-leader-election`,

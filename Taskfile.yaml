@@ -113,6 +113,25 @@ tasks:
         out="$(mise exec -- helm template smoke "$chart" $on --set prometheusRule.repeatedDrift.enabled=false)"
         if printf '%s\n' "$out" | grep -q 'RepeatedDrift'; then exit 1; fi
         printf '%s\n' "$out" | grep -q 'alert: .*ReconcileSlow$'
+      # networkPolicy.kind CiliumNetworkPolicy: the API server as the
+      # kube-apiserver entity, Cilium rules passed through; a peer or rule
+      # without a selector is refused (Cilium would read "anywhere").
+      - |
+        set -eu
+        chart="{{.TEMPLATE_OUT}}/deploy/charts/weebo-example"
+        on="--set networkPolicy.enabled=true --set networkPolicy.kind=CiliumNetworkPolicy --set networkPolicy.egress.enabled=true"
+        rule="--set networkPolicy.egress.extra[0].toFQDNs[0].matchName=otel.example --set networkPolicy.egress.extra[0].toPorts[0].ports[0].port=4317"
+        mise exec -- helm lint "$chart" $on $rule > /dev/null
+        out="$(mise exec -- helm template smoke "$chart" $on $rule --show-only templates/operator.yaml)"
+        printf '%s\n' "$out" | grep -q '^kind: CiliumNetworkPolicy$'
+        if printf '%s\n' "$out" | grep -q '^kind: NetworkPolicy$'; then exit 1; fi
+        printf '%s\n' "$out" | grep -A1 'toEntities:' | grep -q -- '- kube-apiserver'
+        printf '%s\n' "$out" | grep -q 'k8s-app: kube-dns'
+        printf '%s\n' "$out" | grep -q 'matchName: otel.example'
+        printf '%s\n' "$out" | grep -A1 'fromEntities:' | grep -q -- '- host'
+        if mise exec -- helm template smoke "$chart" $on --set networkPolicy.egress.extra[0].toPorts[0].ports[0].port=1 > /dev/null 2>&1; then exit 1; fi
+        if mise exec -- helm template smoke "$chart" $on --set networkPolicy.webhookFrom[0].toPorts[0].ports[0].port=1 > /dev/null 2>&1; then exit 1; fi
+        if mise exec -- helm template smoke "$chart" $on --set networkPolicy.kind=Calico > /dev/null 2>&1; then exit 1; fi
 
   template:render:
     desc: "Render templates/operator (cargo-generate) for a product named Example into TEMPLATE_OUT, wired on this working tree (kit crates and library chart by path)"

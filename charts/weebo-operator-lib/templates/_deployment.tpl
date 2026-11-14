@@ -179,12 +179,16 @@ Optional NetworkPolicy. Ingress: the webhook port and the metrics port.
 Egress is only restricted when networkPolicy.egress.enabled: DNS, the API
 server, then params.egress (the remote system, as
 `[{comment, rules}]`), networkPolicy.egress.vault and .extra.
+networkPolicy.kind CiliumNetworkPolicy renders weebo-operator.ciliumNetworkPolicy
+instead.
 */}}
 {{- define "weebo-operator.networkPolicy" -}}
 {{- $ctx := .ctx -}}
 {{- $p := .params -}}
 {{- $np := $ctx.Values.networkPolicy -}}
-{{- if $np.enabled -}}
+{{- if and $np.enabled (eq ($np.kind | default "NetworkPolicy") "CiliumNetworkPolicy") -}}
+{{- include "weebo-operator.ciliumNetworkPolicy" . -}}
+{{- else if $np.enabled -}}
 {{- if and $np.egress.enabled (not $np.egress.apiServer.to) }}
 {{- fail "networkPolicy.egress.apiServer.to is required when networkPolicy.egress.enabled: the operator cannot work without the API server" }}
 {{- end -}}
@@ -252,6 +256,96 @@ spec:
     {{- end }}
   {{- end }}
 {{- end -}}
+{{- end -}}
+
+{{/*
+The same policy as a CiliumNetworkPolicy (networkPolicy.kind), for Cilium:
+there an `ipBlock` never selects the API server, whose identity is the
+`kube-apiserver` entity, so the NetworkPolicy's egress would cut the
+operator off. Ingress: the probes from the node (`host`) and webhookFrom
+on the webhook port, metricsFrom on the metrics port; an empty list means
+`fromEntities: [all]`. Egress (networkPolicy.egress.enabled): cilium.dnsTo
+and cilium.apiServerTo on the ports of egress.dns and egress.apiServer,
+then params.egress, egress.vault and .extra, written as Cilium rules.
+A peer without a from* selector, or a rule without a to* one, is refused:
+Cilium reads it as "from/to anywhere".
+*/}}
+{{- define "weebo-operator.ciliumNetworkPolicy" -}}
+{{- $ctx := .ctx -}}
+{{- $p := .params -}}
+{{- $v := $ctx.Values -}}
+{{- $np := $v.networkPolicy -}}
+{{- $c := $np.cilium | default dict -}}
+{{- $dnsTo := $c.dnsTo | default (dict "toEndpoints" (list (dict "matchLabels" (dict "k8s:io.kubernetes.pod.namespace" "kube-system" "k8s-app" "kube-dns")))) -}}
+{{- $apiServerTo := $c.apiServerTo | default (dict "toEntities" (list "kube-apiserver")) -}}
+{{- $all := list (dict "fromEntities" (list "all")) -}}
+{{- $webhookPorts := list (dict "ports" (list (dict "port" (toString $v.webhook.containerPort) "protocol" "TCP"))) -}}
+{{- $ingress := list -}}
+{{- range $peer := $np.webhookFrom | default $all -}}
+{{- $ingress = append $ingress (merge (dict "toPorts" $webhookPorts) $peer) -}}
+{{- end -}}
+{{- if include "weebo-operator.metricsEnabled" $ctx -}}
+{{- $metricsPorts := list (dict "ports" (list (dict "port" (toString $v.metrics.prometheus.port) "protocol" "TCP"))) -}}
+{{- range $peer := $np.metricsFrom | default $all -}}
+{{- $ingress = append $ingress (merge (dict "toPorts" $metricsPorts) $peer) -}}
+{{- end -}}
+{{- end -}}
+{{- range $i, $r := $ingress -}}
+{{- $ok := false -}}
+{{- range $k, $val := $r -}}
+{{- if and (hasPrefix "from" $k) (ne $k "fromRequires") $val -}}{{- $ok = true -}}{{- end -}}
+{{- end -}}
+{{- if not $ok -}}
+{{- fail (printf "networkPolicy.webhookFrom/metricsFrom: peer %d has no from* selector, Cilium would read it as from anywhere" $i) -}}
+{{- end -}}
+{{- end -}}
+{{- /* Kubelet probes hit the webhook port from the node itself. */ -}}
+{{- $ingress = prepend $ingress (dict "fromEntities" (list "host") "toPorts" $webhookPorts) -}}
+{{- $egress := list -}}
+{{- if $np.egress.enabled -}}
+{{- if $np.egress.dns.enabled -}}
+{{- $egress = append $egress (merge (dict "toPorts" (include "weebo-operator.ciliumToPorts" $np.egress.dns.ports | fromYamlArray)) $dnsTo) -}}
+{{- end -}}
+{{- $egress = append $egress (merge (dict "toPorts" (include "weebo-operator.ciliumToPorts" $np.egress.apiServer.ports | fromYamlArray)) $apiServerTo) -}}
+{{- range $e := $p.egress -}}
+{{- $egress = concat $egress ($e.rules | default list) -}}
+{{- end -}}
+{{- $egress = concat $egress ($np.egress.vault | default list) ($np.egress.extra | default list) -}}
+{{- range $i, $r := $egress -}}
+{{- $ok := false -}}
+{{- range $k, $val := $r -}}
+{{- if and (hasPrefix "to" $k) (ne $k "toPorts") (ne $k "toRequires") $val -}}{{- $ok = true -}}{{- end -}}
+{{- end -}}
+{{- if not $ok -}}
+{{- fail (printf "networkPolicy egress rule %d (CiliumNetworkPolicy) has no to* selector, Cilium would read it as to anywhere" $i) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "weebo-operator.fullname" $ctx }}
+  labels:
+    {{- include "weebo-operator.labels" $ctx | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "weebo-operator.selectorLabels" $ctx | nindent 6 }}
+  ingress:
+    {{- toYaml $ingress | nindent 4 }}
+  {{- with $egress }}
+  egress:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end -}}
+
+{{/* NetworkPolicy ports (`[{port, protocol}]`) as Cilium toPorts. */}}
+{{- define "weebo-operator.ciliumToPorts" -}}
+{{- $ports := list -}}
+{{- range . -}}
+{{- $ports = append $ports (dict "port" (toString .port) "protocol" (.protocol | default "TCP")) -}}
+{{- end -}}
+{{- toYaml (list (dict "ports" $ports)) -}}
 {{- end -}}
 
 {{/*

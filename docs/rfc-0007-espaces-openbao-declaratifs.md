@@ -1942,8 +1942,10 @@ sont révoqués, et les objets créés hors git supprimés.
 ### 17.3 Reste
 
 - **La NetworkPolicy du chart du kit** reste éteinte partout : sur Cilium,
-  elle ne sait pas désigner l'apiserver. Un rendu `CiliumNetworkPolicy` dans
-  le chart remplacerait les politiques de weebo-si ; non fait.
+  elle ne sait pas désigner l'apiserver. Depuis le 2026-11-14 le chart sait
+  rendre une `CiliumNetworkPolicy` (`networkPolicy.kind`, entité
+  `kube-apiserver`) ; les opérateurs gardent les `operator-egress` de
+  weebo-si tant qu'ils ne sont pas passés dessus.
 - **Un webhook ntfy privé** : HyperDX refuse une URL qui résout en adresse
   privée, sauf si son hôte est dans `WEBHOOK_HOSTNAME_ALLOWLIST` ; non
   configuré, un ntfy public suffit aujourd'hui.

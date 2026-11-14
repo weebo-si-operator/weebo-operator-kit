@@ -4,7 +4,8 @@ Library chart of the weebo operators: every resource an operator chart
 deploys except its CRDs — Deployment, ServiceAccount and RBAC, leader
 election Role, admission webhook (Service, cert-manager Issuer and
 Certificate, `ValidatingWebhookConfiguration`), PodDisruptionBudget,
-metrics Service, ServiceMonitor, PrometheusRule, NetworkPolicy, and the
+metrics Service, ServiceMonitor, PrometheusRule, NetworkPolicy (or
+CiliumNetworkPolicy), and the
 Argo CD health check. Published to `oci://ghcr.io/weebo-si-operator/charts` at
 every kit release, under the kit's version.
 
@@ -135,7 +136,7 @@ with `weebo_kit_runtime::pod::own_labels`.
 | `weebo-operator.metricsService`            | `metrics.prometheus.enabled`                                  |
 | `weebo-operator.serviceMonitor`            | `serviceMonitor.enabled`                                      |
 | `weebo-operator.prometheusRule`            | the kit's alerts (`<Chart>OperatorDown`, `NoLeader`, `MultipleLeaders`, `ReconcileErrors`, `ReconcileSlow`, `RepeatedDrift` unless `prometheusRule.repeatedDrift.enabled` is false: it reads `<prefix>_remote_writes_total`, exported only by an operator that calls `record_write`) + `params.alerts`; needs `metrics.prometheus.enabled`, scoped to the `<fullname>-metrics` scrape job (a ServiceMonitor on the metrics Service) |
-| `weebo-operator.networkPolicy`             | `networkPolicy.enabled`, egress with `params.egress`          |
+| `weebo-operator.networkPolicy`             | `networkPolicy.enabled`, egress with `params.egress`; a `CiliumNetworkPolicy` with `networkPolicy.kind` (the API server as the `kube-apiserver` entity, rules written for Cilium) |
 | `weebo-operator.argocdHealthConfigMap`     | the Ready-condition health check (Lua)                        |
 
 Each takes `(dict "ctx" . "params" $params)`. Helpers take the root
