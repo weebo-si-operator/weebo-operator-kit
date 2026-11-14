@@ -1040,11 +1040,12 @@ cycle kyverno ↔ vault-webhook du démarrage.
   ServiceAccount est monté (il sert au login Kubernetes d'OpenBao), avec
   l'audience par défaut.
 - Egress de l'opérateur : DNS, l'apiserver et `openbao.vault:8200`, rien
-  d'autre. Une CiliumNetworkPolicy `operator-egress` (helper
-  `weebo-base.operatorEgress` de weebo-si, appelé par `2.argo/helm/vault/main`)
-  et non la NetworkPolicy du chart du kit : sur Cilium, un `ipBlock` ne
-  désigne pas l'identité `kube-apiserver`. Les autres opérateurs weebo ont
-  la leur, chacun vers ses seuls systèmes. L'opérateur ne contacte jamais
+  d'autre. C'est la CiliumNetworkPolicy du chart de l'opérateur
+  (`networkPolicy.kind: CiliumNetworkPolicy`, kit v0.32.0), et non sa
+  NetworkPolicy : sur Cilium, un `ipBlock` ne désigne pas l'identité
+  `kube-apiserver`. weebo-si lui passe ses règles
+  (`operatorNetworkPolicy` de `2.argo/helm/vault/main`). Les autres
+  opérateurs weebo ont la leur, chacun vers ses seuls systèmes. L'opérateur ne contacte jamais
   l'IdP :
   c'est OpenBao qui lit la `discoveryUrl`, et l'egress d'OpenBao vers l'IdP
   existe déjà pour le backend du root.
@@ -1839,6 +1840,7 @@ observé, et ce qui reste.
 | 6 bis | 2026-11-14 | Captures `{name}` des `pathGrants`, jetons Che dans `users/<username>/forgejo-token`, `weebo-forgejo` admis par la NetworkPolicy d'OpenBao | kit v0.31.0 (`794a2b7`), weebo-forgejo v0.10.0, weebo-si `9d08a3b2`, `f92d6263` |
 | — | 2026-11-14 | Quatre reason codes du template retirés | weebo-openbao `4dfa0ab` |
 | — | 2026-11-14 | Egress restreint pour les cinq opérateurs weebo (`operator-egress`) | weebo-si `9cdfb52d`, `31bcbb08` |
+| — | 2026-11-14 | Ces politiques rendues par le chart de chaque opérateur (`networkPolicy.kind: CiliumNetworkPolicy`), `operator-egress` retirées ; mêmes sondes, même résultat | kit v0.32.0, weebo-si `d2975283` (`190b07bb`), weebo-angos v0.5.0, weebo-authentik v0.25.0, weebo-batlehub v0.7.0, weebo-forgejo v0.11.0, weebo-openbao v0.2.0, weebo-stalwart v0.5.0 |
 
 Faits de déploiement, sans effet sur le design :
 
@@ -1941,11 +1943,6 @@ sont révoqués, et les objets créés hors git supprimés.
 
 ### 17.3 Reste
 
-- **La NetworkPolicy du chart du kit** reste éteinte partout : sur Cilium,
-  elle ne sait pas désigner l'apiserver. Depuis le 2026-11-14 le chart sait
-  rendre une `CiliumNetworkPolicy` (`networkPolicy.kind`, entité
-  `kube-apiserver`) ; les opérateurs gardent les `operator-egress` de
-  weebo-si tant qu'ils ne sont pas passés dessus.
 - **Un webhook ntfy privé** : HyperDX refuse une URL qui résout en adresse
   privée, sauf si son hôte est dans `WEBHOOK_HOSTNAME_ALLOWLIST` ; non
   configuré, un ntfy public suffit aujourd'hui.
