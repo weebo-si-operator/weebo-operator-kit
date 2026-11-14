@@ -2,7 +2,7 @@
 
 | Champ      | Valeur |
 | ---------- | ------ |
-| Statut     | Accepted (implémentée ; `Implemented` après les deux observations de §17.3) |
+| Statut     | Accepted (implémentée ; `Implemented` après l'observation ntfy de §17.3) |
 | Court      | Espaces OpenBao déclaratifs |
 | Tranche    | Qui crée les mounts, policies, groupes et alias des espaces humains d'OpenBao, dans quels namespaces OpenBao, avec quels droits Vault, sans lier l'opérateur à un fournisseur d'identité |
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
@@ -1888,7 +1888,11 @@ sont révoqués, et les objets créés hors git supprimés.
   `batleforc-test/forgejo-token` (« no pathGrants entry of that mount allows
   it for namespace "dev-ws-batleforc" »). `che-workspace` repasse `Ready`
   après l'ouverture de la NetworkPolicy ; avant, le login de l'opérateur
-  échouait en « Error sending HTTP request ».
+  échouait en « Error sending HTTP request ». Avec le login OIDC de
+  `batleforc` dans `users` (policies `default`, `user_space`),
+  `users/batleforc/forgejo-token` est en version 1, écrit à 00:02:22Z,
+  `custom_metadata` `owner: ForgejoAccessToken/dev-ws-batleforc/che-workspace`,
+  clés `FORGEJO_TOKEN`, `FORGEJO_URL`, `FORGEJO_USERNAME`.
 - **n°9** (2026-11-13 et 14) : `OpenbaoOrganization/test` hors git, un
   secret dans `devenv/orgs/test/weebo-si/x`, puis `kubectl delete` :
   finalizer libéré en moins d'une seconde (`Deleted`, `Released`). Le même
@@ -1909,12 +1913,10 @@ sont révoqués, et les objets créés hors git supprimés.
 
 ### 17.3 Reste
 
-- **Avant `Implemented`, deux observations** :
-  1. lire `users/batleforc/forgejo-token` avec le login de `batleforc` dans
-     `users`, pour voir le jeton écrit par weebo-forgejo ;
-  2. saisir l'URL ntfy (`task vault:ntfy`), puis voir le job
-     `clickstack-dashboards` créer les cinq alertes et une notification
-     arriver.
+- **Avant `Implemented`, une observation** (la lecture du jeton Che dans
+  `users` est faite, §17.2 n°7 bis) : saisir l'URL ntfy
+  (`task vault:ntfy`), puis voir le job `clickstack-dashboards` créer les
+  cinq alertes et une notification arriver.
 - **Egress de l'opérateur non restreint** (§6.6) : à faire avec les autres
   opérateurs, quand la NetworkPolicy du chart saura l'adresse de
   l'apiserver.
