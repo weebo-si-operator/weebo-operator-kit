@@ -1039,11 +1039,13 @@ cycle kyverno ↔ vault-webhook du démarrage.
   capabilities retirées, `seccompProfile: RuntimeDefault`. Le jeton du
   ServiceAccount est monté (il sert au login Kubernetes d'OpenBao), avec
   l'audience par défaut.
-- Egress de l'opérateur : l'apiserver et `openbao.vault:8200` sont les seuls
-  flux voulus, mais **non restreints à la livraison** : la NetworkPolicy du
-  chart demande l'adresse de l'apiserver, propre au cluster, et aucun
-  opérateur frère ne l'active encore. À faire avec eux. L'opérateur ne
-  contacte jamais l'IdP :
+- Egress de l'opérateur : DNS, l'apiserver et `openbao.vault:8200`, rien
+  d'autre. Une CiliumNetworkPolicy `operator-egress` (helper
+  `weebo-base.operatorEgress` de weebo-si, appelé par `2.argo/helm/vault/main`)
+  et non la NetworkPolicy du chart du kit : sur Cilium, un `ipBlock` ne
+  désigne pas l'identité `kube-apiserver`. Les autres opérateurs weebo ont
+  la leur, chacun vers ses seuls systèmes. L'opérateur ne contacte jamais
+  l'IdP :
   c'est OpenBao qui lit la `discoveryUrl`, et l'egress d'OpenBao vers l'IdP
   existe déjà pour le backend du root.
 - Le chart weebo-si des espaces pose, à côté des CRs, ce qui appartient à
@@ -1774,7 +1776,7 @@ le binding Authentik `vault-access` ; `additionalMounts` de forgejo sans
 chaque namespace sujet d'un grant ; l'AppProject `infra` a besoin de `dest`
 et `sourceRepo`, pas seulement des kinds. Réglés : l'AppProject et la
 NetworkPolicy en phase 3 (`weebo-forgejo` le 2026-11-14), le WIP rangé dans
-le `stash@{0}` de weebo-si et repris ou abandonné point par point (§17.3).
+le `stash@{0}` de weebo-si, repris ou abandonné point par point, puis jeté.
 
 Constats de la revue que le texte corrige sans changer de décision : faits,
 et depuis le 2026-11-14 reportés dans le texte avec ce que l'implémentation a
@@ -1836,6 +1838,7 @@ observé, et ce qui reste.
 | 6 bis | 2026-11-14 | Alertes de §10.1 vers ntfy, `task vault:ntfy` | weebo-si `eacb7cd9`, `3e6ff3e8`, `a9e4da9b`, `e1583a72`, `4df6abac` |
 | 6 bis | 2026-11-14 | Captures `{name}` des `pathGrants`, jetons Che dans `users/<username>/forgejo-token`, `weebo-forgejo` admis par la NetworkPolicy d'OpenBao | kit v0.31.0 (`794a2b7`), weebo-forgejo v0.10.0, weebo-si `9d08a3b2`, `f92d6263` |
 | — | 2026-11-14 | Quatre reason codes du template retirés | weebo-openbao `4dfa0ab` |
+| — | 2026-11-14 | Egress restreint pour les cinq opérateurs weebo (`operator-egress`) | weebo-si `9cdfb52d`, `31bcbb08` |
 
 Faits de déploiement, sans effet sur le design :
 
@@ -1924,6 +1927,13 @@ sont révoqués, et les objets créés hors git supprimés.
   les cinq alertes ; un test du webhook `p3` par l'API de HyperDX répond 200
   à 01:30:36Z et Max reçoit la notification. Après deux synchros de
   `monitoring`, les cinq alertes gardent les mêmes identifiants.
+- **Egress** (2026-11-14) : un pod jetable portant le label de chaque
+  opérateur (donc soumis à la même politique) ouvre l'apiserver et les
+  seules cibles prévues (OpenBao pour weebo-openbao ; Forgejo et OpenBao
+  pour weebo-forgejo ; BatleHub pour weebo-batlehub ; Authentik et OpenBao
+  pour weebo-authentik ; rien pour weebo-angos), et expire sur `1.1.1.1:443`,
+  `clickstack.monitoring:8000` et toute cible d'un autre opérateur. Cilium
+  marque les cinq endpoints `egress` ; les CRs restent `Ready`.
 - **Budget** (`Budget::small_cluster()`, OpenBao factice) : 27,8 Mio au
   repos, 100 organisations convergées en 2,6 s, 22 lectures et 0 écriture
   par organisation en régime établi. La latence et le stockage d'OpenBao ne
@@ -1931,11 +1941,9 @@ sont révoqués, et les objets créés hors git supprimés.
 
 ### 17.3 Reste
 
-- **Egress de l'opérateur non restreint** (§6.6) : à faire avec les autres
-  opérateurs, quand la NetworkPolicy du chart saura l'adresse de
-  l'apiserver.
+- **La NetworkPolicy du chart du kit** reste éteinte partout : sur Cilium,
+  elle ne sait pas désigner l'apiserver. Un rendu `CiliumNetworkPolicy` dans
+  le chart remplacerait les politiques de weebo-si ; non fait.
 - **Un webhook ntfy privé** : HyperDX refuse une URL qui résout en adresse
   privée, sauf si son hôte est dans `WEBHOOK_HOSTNAME_ALLOWLIST` ; non
   configuré, un ntfy public suffit aujourd'hui.
-- Le `stash@{0}` de weebo-si (WIP de Max) est entièrement couvert ou
-  abandonné : il peut être jeté.
