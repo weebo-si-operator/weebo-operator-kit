@@ -2,6 +2,17 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.32.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/5956969de983e485304a4118166642bd5e8d45fc..v0.32.0) - 2026-11-14
+#### Features
+- (**chart**) render the operator's policy as a CiliumNetworkPolicy - ([c6c5cdc](https://github.com/weebo-si-operator/weebo-operator-kit/commit/c6c5cdcef512ecac0d61de2af505f2c991a4f4b3)) - Max Batleforc, Claude Opus 5.5
+#### Documentation
+- (**rfc-0007**) operator egress restricted and proven, stash dropped - ([dcead7b](https://github.com/weebo-si-operator/weebo-operator-kit/commit/dcead7bb8879fd26872c0778aeb52c2bfa90de82)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) Implemented, ntfy notification received, alerts kept across syncs - ([d244c15](https://github.com/weebo-si-operator/weebo-operator-kit/commit/d244c15cbfa8388f18f5b815b4025b498ed17440)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) §6.P n°7 bis, the Che token read back from users - ([deb5d6e](https://github.com/weebo-si-operator/weebo-operator-kit/commit/deb5d6ed59b14d4bfdc54251e491028eecf41f0e)) - Max Batleforc, Claude Opus 5.5
+- (**rfc-0007**) fold §17 into the text, Accepted, §17 becomes the log - ([5956969](https://github.com/weebo-si-operator/weebo-operator-kit/commit/5956969de983e485304a4118166642bd5e8d45fc)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.31.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/f9936af61d2a455c7a3452578bc3c87c90620643..v0.31.0) - 2026-11-13
 #### Features
 - (**vault**) {name} captures in pathGrants bind a path to the writer's namespace - ([794a2b7](https://github.com/weebo-si-operator/weebo-operator-kit/commit/794a2b70fe98f1098efa0786c5032ca11a3d0b29)) - Max Batleforc, Claude Opus 5.5
