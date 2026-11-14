@@ -2,13 +2,13 @@
 
 | Champ      | Valeur |
 | ---------- | ------ |
-| Statut     | Accepted (implémentée ; `Implemented` après l'observation ntfy de §17.3) |
+| Statut     | Implemented (2026-11-14) |
 | Court      | Espaces OpenBao déclaratifs |
 | Tranche    | Qui crée les mounts, policies, groupes et alias des espaces humains d'OpenBao, dans quels namespaces OpenBao, avec quels droits Vault, sans lier l'opérateur à un fournisseur d'identité |
 | Auteur     | Max Batleforc <maxleriche.60@gmail.com> |
 | Co-auteur  | Claude Opus 5.5 |
 | Créée      | 2026-11-06 |
-| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites ; phase 5 livrée, preuve n°7 faite ; phase 6 livrée sauf l'envoi des alertes, preuves n°11 et 12 faites ; 2026-11-14 : alertes vers ntfy, jetons Che dans `users` (captures `{name}` des `pathGrants`, kit v0.31.0), écarts de §17 reportés dans le texte, §17 devient le journal |
+| Révisée    | 2026-11-06 : décisions 1 à 21 (15 à 21 après la revue finale à six lentilles) ; phases 0 à 3 livrées, phase 4 poussée ; 2026-11-13 : phase 4 réconciliée, preuves n°5, 6 et 9 de §6.P faites ; phase 5 livrée, preuve n°7 faite ; phase 6 livrée sauf l'envoi des alertes, preuves n°11 et 12 faites ; 2026-11-14 : alertes vers ntfy, jetons Che dans `users` (captures `{name}` des `pathGrants`, kit v0.31.0), écarts de §17 reportés dans le texte, §17 devient le journal ; jeton Che relu dans `users`, notification ntfy reçue : Implemented |
 | Remplace   | — |
 | Touche     | `weebo-openbao` (nouveau dépôt, org `weebo-si-operator`, v0.1.0 à v0.1.5), weebo-operator-kit (`VaultAdditionalMount.vaultNamespace`, `.auth`, v0.29.0 ; `clusterSecrets`/`releaseSecrets` du chart, v0.30.0 ; captures `{name}` des `pathGrants`, v0.31.0), weebo-forgejo (`additionalMounts`, v0.10.0). Dans weebo-si : `2.terra/vault/terra-map/{weebo-openbao,auth-base}.tf`, `2.terra/vault/kustomization.yaml`, `2.terra/auth/terra-map/vault.tf`, `spaces.tf` et `vault-spaces.tf` supprimés ; `2.argo/helm/vault/{main,sub,spaces}` (opérateur, `OpenbaoInstance`, device d'audit, NetworkPolicy, les CRs des espaces) ; `2.argo/helm/auth/{main,sub}/values.yaml` (client OIDC `openbao`, groupes) ; `2.argo/helm/forgejo` et `2.helm/user-app` (mount `users`, jetons Che) ; `2.argo/helm/monitoring` (tableau de bord, alertes ntfy) ; `0.task/vault.yaml` (`vault:ntfy`) ; `2.argo/app/values.yaml` (AppProject) ; `0.docs/content/docs/Infra/openbao.mdx` |
 | Risque     | high (§7) |
@@ -1422,10 +1422,16 @@ comme suites :
   alerte ci-dessous, plus leader, durée des reconciles, Events `Warning` et
   `Deleted`, le pod.
 - **Alertes**, sur les tuiles de ce tableau, envoyées à **ntfy**
-  (`clickstack.alerts` de `2.argo/helm/monitoring/values.yaml`, provisionnées
-  par le job `clickstack-dashboards`). L'URL du topic vit dans Vault,
-  `mv/monitoring/ntfy`, saisie par `task vault:ntfy` ; sans elle, le job
-  laisse les alertes en l'état. Priorité ntfy entre parenthèses :
+  (`clickstack.alerts` de `2.argo/helm/monitoring/values.yaml`). Le job
+  `clickstack-dashboards` crée un webhook par priorité et pose chaque alerte
+  dans le `config.alert` de sa tuile avant d'écrire le tableau : HyperDX
+  l'upserte par (tableau, tuile), elle garde son état et son historique
+  d'une synchro à l'autre, et disparaît avec sa tuile ou son entrée. L'URL
+  du topic vit dans Vault, `mv/monitoring/ntfy` (et un jeton facultatif),
+  saisie par `task vault:ntfy` ; sans elle, les tableaux ne portent aucune
+  alerte. Les messages sont en texte brut, publiés sur l'URL telle quelle :
+  le titre de l'alerte (nom, valeur, seuil) puis son lien HyperDX. Priorité
+  ntfy entre parenthèses :
   - `reason="PermissionDenied"` sur 5 min : tout de suite (5), la policy de
     bootstrap a changé sous l'opérateur ;
   - reconciles en échec pendant 2 × 15 min (4) : la forme livrée de
@@ -1827,7 +1833,7 @@ observé, et ce qui reste.
 | 4 | 2026-11-06 → 13 | Client OIDC `openbao`, chart `2.argo/helm/vault/spaces` (niveaux, cinq namespaces, layout, `batleforc-org`), Application `openbao-spaces` sans prune, `spaces.tf`/`vault-spaces.tf` supprimés ; Secret OIDC en vague 5 | weebo-si `c4e62809`, `42bba270` |
 | 5 | 2026-11-13 | Niveau `token-writer`, grant `forgejo-user-tokens`, mount `users` de forgejo ; weebo-openbao v0.1.5 | weebo-si `2a4e6ea5`, `40e1bf15`, `3ca4c370` |
 | 6 | 2026-11-13 | `Infra/openbao.mdx`, tableau de bord `weebo-openbao`, budget `weebo-kit-perf` hebdomadaire, §6.P n°11 dans `test:live-openbao` | weebo-si `fb9e4fd6`, `26fd86c7` ; weebo-openbao `02c441b`, `c9d40da` |
-| 6 bis | 2026-11-14 | Alertes de §10.1 vers ntfy, `task vault:ntfy` | weebo-si `eacb7cd9`, `3e6ff3e8` |
+| 6 bis | 2026-11-14 | Alertes de §10.1 vers ntfy, `task vault:ntfy` | weebo-si `eacb7cd9`, `3e6ff3e8`, `a9e4da9b`, `e1583a72`, `4df6abac` |
 | 6 bis | 2026-11-14 | Captures `{name}` des `pathGrants`, jetons Che dans `users/<username>/forgejo-token`, `weebo-forgejo` admis par la NetworkPolicy d'OpenBao | kit v0.31.0 (`794a2b7`), weebo-forgejo v0.10.0, weebo-si `9d08a3b2`, `f92d6263` |
 | — | 2026-11-14 | Quatre reason codes du template retirés | weebo-openbao `4dfa0ab` |
 
@@ -1850,6 +1856,14 @@ Faits de déploiement, sans effet sur le design :
 - **Blocage de `openbao-spaces` le 2026-11-06** : l'ExternalSecret en vague
   0 retenait les vagues suivantes ; débloqué de lui-même, cause non établie.
   La vague 5 (`42bba270`) l'évite désormais.
+- **Alertes ntfy, trois retouches au branchement** : la synchro manuelle de
+  `monitoring` doit porter `ServerSideApply` (sinon la ConfigMap des
+  tableaux dépasse l'annotation last-applied) ; l'URL du lab est une
+  passerelle compatible ntfy, qui répond 404 à la racine et refuse les
+  templates (422 sur `action.url`), d'où la publication en texte brut sur
+  l'URL telle quelle ; et les alertes créées par `/alerts` étaient effacées
+  par le `PATCH` du tableau (HyperDX aligne les alertes sur `config.alert`),
+  d'où leur pose dans la tuile.
 - **Event `Deleted`** : son message répétait les namespaces une fois par
   case ; corrigé (`89bb047`, v0.1.5).
 
@@ -1906,6 +1920,10 @@ sont révoqués, et les objets créés hors git supprimés.
 - **n°12** (lab, 2026-11-13) : de 15:45:55Z à 16:47:10Z, 164 reconciles
   réussis, aucun redémarrage, `weebo_openbao_remote_writes_total` absent :
   aucune écriture, `client_secret` compris.
+- **Alertes** (2026-11-14) : le job crée les webhooks `ntfy p2` à `p5` et
+  les cinq alertes ; un test du webhook `p3` par l'API de HyperDX répond 200
+  à 01:30:36Z et Max reçoit la notification. Après deux synchros de
+  `monitoring`, les cinq alertes gardent les mêmes identifiants.
 - **Budget** (`Budget::small_cluster()`, OpenBao factice) : 27,8 Mio au
   repos, 100 organisations convergées en 2,6 s, 22 lectures et 0 écriture
   par organisation en régime établi. La latence et le stockage d'OpenBao ne
@@ -1913,10 +1931,6 @@ sont révoqués, et les objets créés hors git supprimés.
 
 ### 17.3 Reste
 
-- **Avant `Implemented`, une observation** (la lecture du jeton Che dans
-  `users` est faite, §17.2 n°7 bis) : saisir l'URL ntfy
-  (`task vault:ntfy`), puis voir le job `clickstack-dashboards` créer les
-  cinq alertes et une notification arriver.
 - **Egress de l'opérateur non restreint** (§6.6) : à faire avec les autres
   opérateurs, quand la NetworkPolicy du chart saura l'adresse de
   l'apiserver.
