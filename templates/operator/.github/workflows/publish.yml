@@ -9,6 +9,8 @@ name: Publish
 #
 # Images are amd64. `arm64: true` adds a separate arm64 image per variant
 # (`vX.Y.Z-arm64`, `vX.Y.Z-static-arm64`), built natively, never a gate.
+# For one multi-arch tag built natively instead: `native: true` with
+# `platforms: linux/amd64,linux/arm64` (and no `arm64`).
 #
 # The chart is named after the repository, the image after the repository
 # with `-operator`.
