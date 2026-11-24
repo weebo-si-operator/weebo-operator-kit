@@ -26,6 +26,12 @@ name: Publish
 # QEMU, about an hour more, and blocks like amd64); not both. A variant whose
 # gated image was left out gets no arm64 image either.
 #
+# `native: true` builds that single multi-arch tag without QEMU: each
+# platform of `platforms` (linux/amd64, linux/arm64) on its own native
+# runner, scanned, smoke-run and pushed by digest, then the variant's index
+# is assembled from those digests (`imagetools create`), checked and signed.
+# Every platform is a gate, as with QEMU. Excludes `arm64: true`.
+#
 #   on:
 #     push: { tags: ["v*"] }
 #   permissions: {}
@@ -83,6 +89,10 @@ on:
         description: "Also publish a separate arm64 image per variant (tag suffix -arm64), built natively, never a gate"
         type: boolean
         default: false
+      native:
+        description: "Build each platform of `platforms` on a native runner (linux/amd64, linux/arm64; no QEMU) and assemble one multi-arch tag from them"
+        type: boolean
+        default: false
       smoke-entrypoint:
         description: "Binary run to prove the image starts (empty: no smoke run)"
         type: string
@@ -110,6 +120,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      native-matrix: ${{ steps.native-matrix.outputs.json }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -137,6 +149,7 @@ jobs:
           VARIANTS: ${{ inputs.variants }}
           PLATFORMS: ${{ inputs.platforms }}
           ARM64: ${{ inputs.arm64 }}
+          NATIVE: ${{ inputs.native }}
         run: |
           # Every variant names its Containerfile and a string suffix;
           # `required`, when given, is a boolean (absent: required).
@@ -154,9 +167,38 @@ jobs:
                 exit 1
               fi ;;
           esac
+          if [ "$NATIVE" = true ] && [ "$ARM64" = true ]; then
+            echo "::error::native: true already builds linux/arm64 natively when platforms lists it: drop arm64: true" >&2
+            exit 1
+          fi
+      # `native: true`: one entry per variant and platform, with its runner.
+      - name: Native build matrix
+        id: native-matrix
+        env:
+          VARIANTS: ${{ inputs.variants }}
+          PLATFORMS: ${{ inputs.platforms }}
+          NATIVE: ${{ inputs.native }}
+        run: |
+          if [ "$NATIVE" != true ]; then
+            echo "json=[]" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          json="$(jq -cn --argjson variants "$VARIANTS" --arg platforms "$PLATFORMS" '
+            {"linux/amd64": "ubuntu-latest", "linux/arm64": "ubuntu-24.04-arm"} as $runners
+            | [$platforms | split(",")[] | gsub("^\\s+|\\s+$"; "") | select(length > 0)] as $list
+            | if ($list | length) == 0 then error("platforms is empty") else . end
+            | [$variants[] as $v | $list[] as $p
+                | $v + {platform: $p, arch: ($p | split("/")[1]), runner: $runners[$p]}]')"
+          bad="$(printf '%s' "$json" | jq -r '[.[] | select(.runner == null) | .platform] | unique | join(", ")')"
+          if [ -n "$bad" ]; then
+            echo "::error::native: true has no native runner for $bad (linux/amd64, linux/arm64 only)" >&2
+            exit 1
+          fi
+          echo "json=$json" >> "$GITHUB_OUTPUT"
 
   image:
     needs: version-check
+    if: ${{ !inputs.native }}
     runs-on: ubuntu-latest
     # Long only when `platforms` asks for an emulated one (QEMU).
     timeout-minutes: 240
@@ -505,11 +547,269 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # `native: true`, step 1 of 2: one platform of one variant, on its native
+  # runner. Both gates run here (no QEMU needed for the smoke-runs); the
+  # image is pushed by digest only, untagged until image-merge.
+  image-native:
+    needs: version-check
+    if: ${{ inputs.native }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    continue-on-error: ${{ toJSON(matrix.required) == 'false' }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.version-check.outputs.native-matrix) }}
+    env:
+      # `mise exec` would install every tool of mise.toml it finds missing,
+      # through GitHub's API, unauthenticated: a shared runner's rate limit
+      # failed the v0.23.0 release (library chart). Only what the job
+      # installs is used, and mise's API calls are authenticated.
+      MISE_EXEC_AUTO_INSTALL: "false"
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-mise
+      - run: mise install "$GRYPE"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Compute labels and the digest artifact name
+        id: meta
+        env:
+          SUFFIX: ${{ matrix.suffix }}
+          FILE: ${{ matrix.file }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          {
+            echo "labels<<EOF"
+            echo "org.opencontainers.image.version=${TAG#v}"
+            echo "org.opencontainers.image.revision=$(git rev-parse HEAD)"
+            echo "org.opencontainers.image.created=$(git log -1 --format=%cI)"
+            echo "org.opencontainers.image.ref.name=${TAG}${SUFFIX}"
+            echo "EOF"
+            echo "scan=${CHART}-operator:scan${SUFFIX}-${ARCH}"
+            # An artifact name takes no `/`: the Containerfile path, flattened.
+            echo "artifact=digests-$(printf '%s' "$FILE" | tr -c 'A-Za-z0-9._-' '_')-${ARCH}"
+          } >> "$GITHUB_OUTPUT"
+
+      # Gate 1, before anything is pushed.
+      - name: Build the image for the pre-push scan
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: ${{ matrix.platform }}
+          push: false
+          load: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.scan }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.file }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ matrix.file }}-${{ matrix.arch }}
+
+      - name: Scan the image
+        env:
+          SCAN: ${{ steps.meta.outputs.scan }}
+        run: mise exec "$GRYPE" -- grype "docker:$SCAN" --fail-on high
+
+      - name: Smoke-run the image
+        if: ${{ inputs.smoke-entrypoint != '' }}
+        env:
+          SCAN: ${{ steps.meta.outputs.scan }}
+          ENTRYPOINT: ${{ inputs.smoke-entrypoint }}
+          ARGS: ${{ inputs.smoke-args }}
+        run: |
+          # shellcheck disable=SC2086
+          docker run --rm --entrypoint "$ENTRYPOINT" "$SCAN" $ARGS
+
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # By digest, no tag: image-merge tags the index once every platform
+      # passed. The attestations (provenance, SBOM) ride in this digest's
+      # index and are carried into the merged one.
+      - name: Build and push the image by digest
+        id: push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          platforms: ${{ matrix.platform }}
+          outputs: type=image,name=${{ inputs.image }},push-by-digest=true,name-canonical=true,push=true
+          provenance: mode=max
+          sbom: true
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.file }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.file }}-${{ matrix.arch }}
+
+      # Gate 2, on what was pushed, on this platform's own hardware.
+      - name: Scan and smoke-run the pushed digest
+        env:
+          REF: ${{ inputs.image }}@${{ steps.push.outputs.digest }}
+          PLATFORM: ${{ matrix.platform }}
+          ENTRYPOINT: ${{ inputs.smoke-entrypoint }}
+          ARGS: ${{ inputs.smoke-args }}
+        run: |
+          mise exec "$GRYPE" -- grype "registry:$REF" --platform "$PLATFORM" --fail-on high
+          if [ -n "$ENTRYPOINT" ]; then
+            # shellcheck disable=SC2086
+            docker run --rm --platform "$PLATFORM" --entrypoint "$ENTRYPOINT" "$REF" $ARGS
+          fi
+
+      - name: Record the digest
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ steps.meta.outputs.artifact }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  # `native: true`, step 2 of 2: per variant, the index of its platforms'
+  # digests, tagged, checked and signed. A platform missing (its build
+  # failed) fails the variant: required, the release stops; optional, it is
+  # left out.
+  image-merge:
+    needs: image-native
+    if: ${{ inputs.native && !cancelled() && needs.image-native.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: ${{ toJSON(matrix.required) == 'false' }}
+    permissions:
+      contents: read
+      packages: write
+      # Keyless cosign signatures.
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.variants) }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags (the floating tag only for the highest version tag)
+        id: meta
+        env:
+          SUFFIX: ${{ matrix.suffix }}
+          FILE: ${{ matrix.file }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Same rule as the image job: final releases only, read with the
+          # job's token.
+          auth="$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)"
+          highest=$(git -c "http.extraheader=AUTHORIZATION: basic $auth" \
+            ls-remote --tags --refs origin 'refs/tags/v*' \
+            | sed 's#.*refs/tags/##' | { grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true; } \
+            | sort -V | tail -n1)
+          if [ -z "$highest" ]; then
+            echo "::notice::no vX.Y.Z tag on origin yet: $TAG gets no floating tag"
+          fi
+          tags="${IMAGE}:${TAG}${SUFFIX}"
+          if [ "$highest" = "$TAG" ]; then
+            floating="latest"
+            [ -n "$SUFFIX" ] && floating="${SUFFIX#-}"
+            tags="$(printf '%s\n%s:%s' "$tags" "$IMAGE" "$floating")"
+          fi
+          {
+            echo "tags<<EOF"
+            echo "$tags"
+            echo "EOF"
+            echo "pattern=digests-$(printf '%s' "$FILE" | tr -c 'A-Za-z0-9._-' '_')-*"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: ${{ steps.meta.outputs.pattern }}
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+
+      - name: Create the multi-arch index
+        id: merge
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          PLATFORMS: ${{ inputs.platforms }}
+          DIR: ${{ runner.temp }}/digests
+        run: |
+          want="$(printf '%s' "$PLATFORMS" | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' | sed '/^$/d' | sort -u)"
+          sources=()
+          if [ -d "$DIR" ]; then
+            for f in "$DIR"/*; do
+              [ -e "$f" ] && sources+=("${IMAGE}@sha256:$(basename "$f")")
+            done
+          fi
+          if [ "${#sources[@]}" -ne "$(printf '%s\n' "$want" | wc -l)" ]; then
+            echo "::error::${#sources[@]} platform digest(s) for $(printf '%s' "$want" | tr '\n' ' '): a platform's build failed" >&2
+            exit 1
+          fi
+          args=()
+          while read -r tag; do
+            [ -n "$tag" ] && args+=(--tag "$tag")
+          done <<< "$TAGS"
+          docker buildx imagetools create "${args[@]}" "${sources[@]}"
+          first="$(printf '%s\n' "$TAGS" | head -n1)"
+          raw="$(docker buildx imagetools inspect --raw "$first")"
+          # Exactly the platforms asked for (attestation manifests are
+          # `unknown/unknown`).
+          got="$(printf '%s' "$raw" | jq -r '.manifests[].platform | select(.os != "unknown") | "\(.os)/\(.architecture)"' | sort -u)"
+          if [ "$got" != "$want" ]; then
+            echo "::error::the index has $(printf '%s' "$got" | tr '\n' ' '), expected $(printf '%s' "$want" | tr '\n' ' ')" >&2
+            exit 1
+          fi
+          digest="$(docker buildx imagetools inspect "$first" --format '{{json .Manifest}}' | jq -er .digest)"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      # Keyless: the certificate binds the signature to this workflow run.
+      # --recursive also signs each platform manifest of the index.
+      - name: Sign the image with cosign
+        env:
+          REF: ${{ inputs.image }}@${{ steps.merge.outputs.digest }}
+        run: cosign sign --yes --recursive "$REF"
+
+      - name: Summary
+        env:
+          DIGEST: ${{ steps.merge.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+          FILE: ${{ matrix.file }}
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          {
+            echo "### ${IMAGE} (${FILE}, native ${PLATFORMS})"
+            echo
+            echo "Digest: \`${DIGEST}\`"
+            echo
+            printf '%s\n' "$TAGS" | while read -r tag; do
+              if [ -n "$tag" ]; then echo "- \`$tag\`"; fi
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
   chart:
     # Never publish a chart whose required images failed (an optional
-    # variant's failure is absorbed by continue-on-error).
-    needs: image
-    if: ${{ !cancelled() && needs.image.result == 'success' }}
+    # variant's failure is absorbed by continue-on-error). One of image and
+    # image-merge runs, the other is skipped (`native`).
+    needs: [image, image-merge]
+    if: ${{ !cancelled() && (needs.image.result == 'success' || needs.image-merge.result == 'success') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
