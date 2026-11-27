@@ -15,7 +15,6 @@ use std::future::Future;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use sha2::{Digest, Sha256};
 use tokio::sync::{Mutex, RwLock};
 use vaultrs::api::kv2::requests::{SetSecretMetadataRequest, SetSecretRequestOptions};
 use vaultrs::client::{Client as _, VaultClient, VaultClientSettingsBuilder};
@@ -23,6 +22,7 @@ use vaultrs::error::ClientError;
 use vaultrs::{auth::kubernetes, kv2, token};
 use weebo_kit_api::{SecretKeyRef, VaultAdditionalMount, VaultPathGrant};
 use weebo_kit_application::ports::SecretStoreError;
+use weebo_kit_application::workload::content_hash;
 use weebo_kit_domain::vault_paths::{self, PathGrant};
 
 /// The operator's projected ServiceAccount token, exchanged for a Vault
@@ -63,11 +63,11 @@ impl VaultConfig {
     /// `secret_ref`: `namespace/name/key@sha256:<digest of pem>`.
     pub fn ca_source_of(secret_ref: &SecretKeyRef, pem: &[u8]) -> String {
         format!(
-            "{}/{}/{}@sha256:{:x}",
+            "{}/{}/{}@sha256:{}",
             secret_ref.namespace,
             secret_ref.name,
             secret_ref.key,
-            Sha256::digest(pem)
+            content_hash(pem)
         )
     }
 }
