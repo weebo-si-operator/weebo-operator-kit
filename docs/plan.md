@@ -387,7 +387,7 @@ sources TypeScript compilées par le site (`transpilePackages`) :
   lit par `--font-silkscreen`/`--font-jetbrains-mono`. Le style des
   diagrammes (`diagram-style`) aussi.
 - Versions alignées sur forgejo : fumadocs-core/ui ^16.16.2, fumadocs-mdx
-  ^15.4.6, next ^16.4.1, react 19.3, en `peerDependencies` par plages (un
+  ^15.4.6, next ^16.4.6 (16.4.1 avant ses avis GHSA), react 19.3, en `peerDependencies` par plages (un
   correctif de sécurité de Next n'attend pas une release du kit) ; les
   `devDependencies` épinglent les planchers.
 - `task docs:check` (version = workspace, `tsc` contre les peers, tests du
