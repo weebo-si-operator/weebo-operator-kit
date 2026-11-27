@@ -1,0 +1,91 @@
+# Dependency hygiene (weebo-deps): the same `task deps*` a developer runs.
+# The whole-tree CVE gate stays `task audit` (checks.yml); this one answers
+# "did this PR make it better or worse?" and "is everything used?".
+name: Dependency hygiene
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "**/Cargo.toml"
+      - "Cargo.lock"
+      - "packages/operator-docs/package.json"
+      - "packages/operator-docs/package-lock.json"
+      - "packages/operator-docs/src/**"
+      - "site/package.json"
+      - "site/package-lock.json"
+      - "site/src/**"
+      - "site/scripts/**"
+      - "mise.toml"
+      - ".tasks/deps.yaml"
+      - ".github/workflows/deps.yml"
+  # Weekly: the outdated report lands in the run summary.
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  # Only the tools each job installs; mise's API calls authenticated.
+  MISE_EXEC_AUTO_INSTALL: "false"
+  GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  unused:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-mise
+      - run: mise install task rust node cargo:cargo-machete
+      # knip loads the tool configs from node_modules.
+      - run: |
+          mise exec -- npm ci --prefix packages/operator-docs --no-fund --no-audit
+          mise exec -- npm ci --prefix site --no-fund --no-audit
+      - run: mise exec -- task deps:unused
+
+  cve-diff:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0 # the base commit's lockfiles
+          persist-credentials: false
+      - uses: ./.github/actions/setup-mise
+      - run: mise install task rust node jq cargo:cargo-audit
+      - name: Advisories closed / opened by this PR
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          rc=0
+          mise exec -- task deps:cve:branch BASE="$BASE" > cve.txt 2>&1 || rc=$?
+          cat cve.txt
+          { echo '```'; grep -E '^(FIXED|INTRODUCED|REMAINING)' cve.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+
+  outdated:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-mise
+      - run: mise install task rust node
+      - run: |
+          mise exec -- npm ci --prefix packages/operator-docs --no-fund --no-audit
+          mise exec -- npm ci --prefix site --no-fund --no-audit
+      - name: Outdated report
+        run: |
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          mise exec -- task deps:outdated 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
