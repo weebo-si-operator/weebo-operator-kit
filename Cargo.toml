@@ -21,8 +21,6 @@ repository = "https://github.com/weebo-si-operator/weebo-operator-kit"
 weebo-kit-domain = { path = "crates/weebo-kit-domain" }
 weebo-kit-api = { path = "crates/weebo-kit-api" }
 weebo-kit-application = { path = "crates/weebo-kit-application" }
-weebo-kit-adapters = { path = "crates/weebo-kit-adapters" }
-weebo-kit-runtime = { path = "crates/weebo-kit-runtime" }
 weebo-kit-testkit = { path = "crates/weebo-kit-testkit" }
 
 # Same versions as the operators using the kit: a mismatch would link two
