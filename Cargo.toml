@@ -32,13 +32,15 @@ thiserror = "2.0"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "net", "signal"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-kube = { version = "4.0", features = ["derive", "runtime", "client"] }
+kube = { version = "5.2", features = ["derive", "runtime", "client"] }
 # No `v1_*` feature: k8s-openapi leaves the Kubernetes version to the
 # application (its lib.rs), and two versions in one graph fail its build.
-# The operator's workspace picks it; the kit's tests take `v1_36` through a
+# The operator's workspace picks it; the kit's tests take `v1_37` through a
 # dev-dependency, its `cargo check`/`doc` through K8S_OPENAPI_ENABLED_VERSION
 # (mise.toml). RFC 0005; the guard is crates/weebo-kit-domain/tests.
-k8s-openapi = { version = "0.28", features = ["schemars"] }
+# The test version is k8s-openapi's newest: `envtest` (weebo-kit-testkit)
+# enables its `latest` feature, so a test build on any other version fails.
+k8s-openapi = { version = "0.29", features = ["schemars"] }
 schemars = "1.2"
 axum = "0.8"
 axum-server = { version = "0.9", default-features = false, features = [
@@ -55,7 +57,7 @@ prometheus = { version = "0.14", default-features = false }
 async-trait = "0.1"
 uuid = { version = "1", features = ["v4"] }
 futures = "0.3"
-envtest = "0.3"
+envtest = "0.4"
 sha2 = "0.11"
 http = "1"
 

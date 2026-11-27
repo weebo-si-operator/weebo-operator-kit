@@ -12,33 +12,37 @@ the kit follows it.
 ## The rule
 
 - **No kit library enables a `v1_*` feature.** The workspace declares
-  `k8s-openapi = { version = "0.28", features = ["schemars"] }` and every
+  `k8s-openapi = { version = "0.29", features = ["schemars"] }` and every
   library crate takes it with `workspace = true`, no feature. A test in
   `weebo-kit-domain` reads the crates' `Cargo.toml` and fails if one does.
 - **The operator picks**, in its own workspace, at the oldest apiserver
-  it supports. The template (and every weebo operator today) uses
-  `v1_36`:
+  it supports. The template uses `v1_37`:
 
   ```toml
-  k8s-openapi = { version = "0.28", features = ["v1_36", "schemars"] }
+  k8s-openapi = { version = "0.29", features = ["v1_37", "schemars"] }
   ```
 
   ProxyAuthK8S compiles for `v1_34`: without this rule, adding a kit crate
   failed its build.
-- **The kit's own builds** still need a version: its tests take `v1_36`
+- **The kit's own builds** still need a version: its tests take `v1_37`
   through a dev-dependency in each crate that has tests, and
-  `cargo check`/`cargo doc` through `K8S_OPENAPI_ENABLED_VERSION = "1.36"`
+  `cargo check`/`cargo doc` through `K8S_OPENAPI_ENABLED_VERSION = "1.37"`
   in `mise.toml`.
 
 ## Supported range
 
-The libraries compile for every version `k8s-openapi` 0.28 has, 1.32 to
-1.36. The kit's CI checks each one (`k8s-versions` job of `ci.yml`,
+The libraries compile for every version `k8s-openapi` 0.29 has, 1.33 to
+1.37. The kit's CI checks each one (`k8s-versions` job of `ci.yml`,
 `cargo check --lib` of `weebo-kit-domain`, `-api`, `-application`,
-`-adapters` and `-runtime`); tests run against 1.36. Should the kit ever
-use a field of one version only, it will gate it with `k8s-openapi`'s
-`k8s_if_*` macros or document its floor.
+`-adapters` and `-runtime`); tests run against 1.37. A field whose type
+changes between versions is gated with `k8s-openapi`'s `k8s_if_*` macros:
+a Deployment's `spec`, required from 1.37 on and optional before, is read
+under `k8s_if_ge_1_37!`/`k8s_if_le_1_36!` (`weebo-kit-adapters`,
+`workloads.rs`).
 
-Moving the kit's test version no longer forces the operators to move the
-same day. Moving `kube` or `k8s-openapi` itself is still a kit release
+Moving the kit's test version no longer forces the operators' own builds
+to move the same day. Their test builds are another matter:
+`weebo-kit-testkit` depends on `envtest`, which enables `k8s-openapi`'s
+`latest` feature, so an operator whose tests use the testkit tests on the
+newest version `k8s-openapi` has (1.37 with 0.29). Moving `kube` or `k8s-openapi` itself is still a kit release
 followed by one per operator.

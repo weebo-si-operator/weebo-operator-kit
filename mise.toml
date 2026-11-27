@@ -2,7 +2,7 @@
 # kit's libraries enable no `v1_*` feature (RFC 0005). The same version as
 # the tests' dev-dependency, so the two never conflict.
 [env]
-K8S_OPENAPI_ENABLED_VERSION = "1.36"
+K8S_OPENAPI_ENABLED_VERSION = "1.37"
 
 [tools]
 cocogitto = "latest"

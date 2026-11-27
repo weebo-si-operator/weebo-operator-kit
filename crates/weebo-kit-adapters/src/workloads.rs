@@ -339,7 +339,10 @@ impl OwnedObjects for KubeOwnedObjects {
         else {
             return Ok(None);
         };
-        let spec = deployment.spec.as_ref();
+        // A Deployment's spec is required from Kubernetes 1.37 on, optional
+        // before: the operator picks the version (RFC 0005).
+        k8s_openapi::k8s_if_ge_1_37! { let spec = Some(&deployment.spec); }
+        k8s_openapi::k8s_if_le_1_36! { let spec = deployment.spec.as_ref(); }
         let status = deployment.status.clone().unwrap_or_default();
         Ok(Some(Rollout {
             replicas: spec.and_then(|s| s.replicas).unwrap_or(1),
