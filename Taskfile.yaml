@@ -2,6 +2,7 @@ version: "3"
 
 includes:
   mise: ./.tasks/mise.yaml
+  deps: { taskfile: ./.tasks/deps.yaml, flatten: true }
   # The shared tasks the operators include remotely (tasks/), included
   # here from the working tree.
   rust: ./tasks/rust.yaml
