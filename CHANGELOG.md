@@ -2,6 +2,26 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.33.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/867d287029fcd24923fde63f99429e77b02a95a6..v0.33.0) - 2026-11-27
+#### Bug Fixes
+- (**deps**) operator-docs' next floor to ^16.4.6 - ([ce0aa20](https://github.com/weebo-si-operator/weebo-operator-kit/commit/ce0aa20d05ee08b726f95565438b9d29eb51b81d)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) in-range bump, site on next 16.4.6 - ([53316ad](https://github.com/weebo-si-operator/weebo-operator-kit/commit/53316adcf9746d4f190a7924925b11b1ecb5c64f)) - Max Batleforc, Claude Opus 5.5
+#### Documentation
+- (**rfc-0007**) operators' policies rendered by their own charts - ([867d287](https://github.com/weebo-si-operator/weebo-operator-kit/commit/867d287029fcd24923fde63f99429e77b02a95a6)) - Max Batleforc, Claude Opus 5.5
+#### Continuous Integration
+- (**deps**) dependency hygiene workflow - ([debe94c](https://github.com/weebo-si-operator/weebo-operator-kit/commit/debe94cd5e77e4078c1a7558f5cbc4f2835815ea)) - Max Batleforc, Claude Opus 5.5
+#### Miscellaneous Chores
+- (**deps**) kube 4 -> 5, k8s-openapi 0.28 -> 0.29, envtest 0.3 -> 0.4 - ([4afe0cc](https://github.com/weebo-si-operator/weebo-operator-kit/commit/4afe0cc952aea40d54fc4281a9a10f9a8353feb7)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) eslint 9 -> 10 in operator-docs - ([643b1cc](https://github.com/weebo-si-operator/weebo-operator-kit/commit/643b1ccd088afa4ca1277dec9c704d19b08e51c9)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) @xyflow/react 12 -> 13 - ([f161a67](https://github.com/weebo-si-operator/weebo-operator-kit/commit/f161a67abcfbbb6c3028fb1bbef6be44ecf16da4)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) drop two workspace dependencies no member uses - ([b5eaef3](https://github.com/weebo-si-operator/weebo-operator-kit/commit/b5eaef39d908998c22cea8f2fca37f3f6162c421)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) axum-server 0.8 -> 0.9 - ([b154fc8](https://github.com/weebo-si-operator/weebo-operator-kit/commit/b154fc8df722164a13148288b408d9fd25d76438)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) sha2 0.10 -> 0.11 - ([858744e](https://github.com/weebo-si-operator/weebo-operator-kit/commit/858744eafc32f022ee9eed74c10aa3e8d0885d37)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) remove the operator template's unused dependencies - ([b4cd628](https://github.com/weebo-si-operator/weebo-operator-kit/commit/b4cd62801f002b263868fb703a50a1ddf3b5d91c)) - Max Batleforc, Claude Opus 5.5
+- (**deps**) task deps contract (outdated, unused, update, CVE diff) - ([74695bf](https://github.com/weebo-si-operator/weebo-operator-kit/commit/74695bfb02ce6684d0c6757b06ee4ccd55fb088f)) - Max Batleforc, Claude Opus 5.5
+
+- - -
+
 ## [v0.32.0](https://github.com/weebo-si-operator/weebo-operator-kit/compare/5956969de983e485304a4118166642bd5e8d45fc..v0.32.0) - 2026-11-14
 #### Features
 - (**chart**) render the operator's policy as a CiliumNetworkPolicy - ([c6c5cdc](https://github.com/weebo-si-operator/weebo-operator-kit/commit/c6c5cdcef512ecac0d61de2af505f2c991a4f4b3)) - Max Batleforc, Claude Opus 5.5
