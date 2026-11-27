@@ -51,12 +51,10 @@ schemars = "1.2"
 axum = "0.8"
 rustls = { version = "0.23", features = ["ring"] }
 wiremock = "0.6"
-opentelemetry = "0.33"
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }
 async-trait = "0.1"
 uuid = { version = "1", features = ["v4"] }
-futures = "0.3"
 reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
 
 # weebo-good-practice: the kit's own lints, on for every crate

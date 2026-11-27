@@ -13,5 +13,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 weebo-kit-api = { workspace = true }
 
+[package.metadata.cargo-machete]
+# kube's CustomResource derive expands to `::k8s_openapi::…` paths: used,
+# but never named in the source.
+ignored = ["k8s-openapi"]
+
 [lints]
 workspace = true
