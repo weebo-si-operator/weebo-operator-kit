@@ -5,7 +5,7 @@
 // list, which stays the way to work with the keyboard or a screen reader.
 
 import { useEffect, useMemo, useState } from "react";
-import { applyNodeChanges, Background, Controls, Position, ReactFlow, type Edge, type Node } from "@xyflow/react";
+import { Background, Controls, NodeChangeset, Position, ReactFlow, type Edge, type Node } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import type { Graph, GraphNode } from "./model/graph";
 import { layout } from "./model/layout";
@@ -102,13 +102,16 @@ export default function GraphView({
         nodes={flowNodes}
         edges={edges}
         onNodesChange={(changes) => {
-          setFlowNodes((current) => applyNodeChanges(changes, current));
+          // Copied: the state updater runs after this handler returns, and
+          // the changeset is xyflow's to reuse.
+          const list = changes.toArray();
+          setFlowNodes((current) => new NodeChangeset(list).applyTo(current));
           // A node picked with the mouse or the keyboard opens its resource.
-          const picked = changes.find((c) => c.type === "select" && c.selected);
-          if (picked?.type === "select") open(picked.id);
+          const picked = changes.getByType("select").find((c) => c.selected);
+          if (picked) open(picked.id);
         }}
+        // xyflow 13's default padding (5%) is the 0.1 of xyflow 12.
         fitView
-        fitViewOptions={{ padding: 0.1 }}
         // A chain of a dozen columns still fits the docs' width.
         minZoom={0.15}
         nodesDraggable={false}
